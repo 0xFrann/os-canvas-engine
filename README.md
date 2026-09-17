@@ -1,5 +1,7 @@
 # os-canvas-engine
 
+**Live preview:** [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-canvas-engine/) — needs Chrome Canary 148+ with the `canvas-draw-element` flag (see below), otherwise you'll just see the "unsupported browser" screen.
+
 An experimental web-OS desktop shell — a taskbar and draggable, resizable windows — rendered through Chrome's experimental **HTML-in-Canvas API**, so every pixel is composited through `<canvas>` while the content inside each window stays real, interactive HTML (native text selection, inputs, accessibility).
 
 ## ⚠️ Browser requirement

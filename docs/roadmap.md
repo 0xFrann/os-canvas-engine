@@ -13,6 +13,9 @@ Each row below is its own feature branch, opened as its own PR — see the proje
 | 5 | Renderer (HTML-in-Canvas) | todo | `packages/renderer` | — | — |
 | 6 | Runtime (frame loop) | todo | `packages/runtime` | — | — |
 | 7 | Shell app (desktop + taskbar + apps) | todo | `apps/shell` | — | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
+| — | GitHub Pages deploy | done | `.github/workflows/deploy-pages.yml` | [engineering note](./engineering-notes/2026-09-17-github-pages.md) | — |
+
+Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-canvas-engine/) (deploys from `main` on every push).
 
 ## Decisions made ahead of their step
 
@@ -25,3 +28,4 @@ Each row below is its own feature branch, opened as its own PR — see the proje
 | 2026-09-17 | Repo scaffolded; tooling, docs skeleton, and workflow in place |
 | 2026-09-17 | ADR 001: shell app uses React + shadcn/ui (Base UI); engine packages stay vanilla TS |
 | 2026-09-17 | Capability gate: apps/shell (Vite + React) gates on `drawElementImage` support |
+| 2026-09-17 | GitHub Pages deploy wired up (deploy-pages workflow, Vite base path) |
