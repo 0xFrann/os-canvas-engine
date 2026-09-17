@@ -3,10 +3,10 @@ import type { Document, Node } from "@os-canvas/document";
 
 export function containsPoint(node: Node, point: Vec2): boolean {
   return (
-    point.x >= node.worldX &&
-    point.x <= node.worldX + node.width &&
-    point.y >= node.worldY &&
-    point.y <= node.worldY + node.height
+    point.x >= node.x &&
+    point.x <= node.x + node.width &&
+    point.y >= node.y &&
+    point.y <= node.y + node.height
   );
 }
 
@@ -44,9 +44,8 @@ function resolvePickPoint(node: Node, screenPoint: Vec2, worldPoint: Vec2): Vec2
  * or zoom.
  */
 export function hitTest(doc: Document, camera: Camera, screenPoint: Vec2): Node["id"] | undefined {
-  doc.ensureWorld();
   const worldPoint = screenToWorld(screenPoint, camera);
-  const nodes = [...doc.nodeReferences.values()].toSorted(comparePaintOrder);
+  const nodes = [...doc.nodes.values()].toSorted(comparePaintOrder);
   const matches = nodes.filter((node) =>
     containsPoint(node, resolvePickPoint(node, screenPoint, worldPoint)),
   );

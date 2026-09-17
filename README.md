@@ -16,8 +16,7 @@ This is a portfolio piece: an exploration of what a browser-native "OS" could lo
 
 | Package | Role |
 |---------|------|
-| `@os-canvas/document` | Tree + locals + Window/Taskbar node model |
-| `@os-canvas/scene-graph` | Render-facing spatial reads |
+| `@os-canvas/document` | Flat node store + Window/Taskbar model |
 | `@os-canvas/camera` | World ↔ screen (pan / zoom) |
 | `@os-canvas/hit-testing` | World- and screen-space node pick |
 | `@os-canvas/renderer` | HTML-in-Canvas paint (`drawElementImage`) |

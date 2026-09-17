@@ -34,16 +34,8 @@ describe("hitTest", () => {
   it("prefers the higher zIndex when two world nodes overlap", () => {
     const doc = new DocumentModel({ name: "Board" });
     doc.addNode({ height: 100, width: 100, x: 0, y: 0, ...win });
-    doc.selectNode("root");
     const top = doc.addNode({ height: 100, width: 100, x: 20, y: 20, ...win, zIndex: 1 });
     expect(hitTest(doc, createCamera(), { x: 50, y: 50 })).toBe(top.id);
-  });
-
-  it("uses world position for nested nodes", () => {
-    const doc = new DocumentModel({ name: "Board" });
-    doc.addNode({ height: 160, width: 200, x: 100, y: 50, ...win });
-    const child = doc.addNode({ height: 60, width: 80, x: 20, y: 10, ...win });
-    expect(hitTest(doc, createCamera(), { x: 130, y: 70 })).toBe(child.id);
   });
 
   it("keeps a screen-anchored node fixed regardless of camera pan/zoom", () => {
@@ -56,7 +48,6 @@ describe("hitTest", () => {
   it("prefers a screen-anchored node over an overlapping world node", () => {
     const doc = new DocumentModel({ name: "Board" });
     doc.addNode({ height: 800, width: 800, x: 0, y: 0, ...win, zIndex: 99 });
-    doc.selectNode("root");
     const taskbar = doc.addNode({ height: 48, width: 800, x: 0, y: 0, ...bar });
     expect(hitTest(doc, createCamera(), { x: 10, y: 10 })).toBe(taskbar.id);
   });

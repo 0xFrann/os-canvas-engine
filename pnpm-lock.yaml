@@ -77,19 +77,6 @@ importers:
         specifier: 3.2.4
         version: 3.2.4(lightningcss@1.33.0)(yaml@2.8.1)
 
-  packages/scene-graph:
-    dependencies:
-      '@os-canvas/document':
-        specifier: workspace:*
-        version: link:../document
-    devDependencies:
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-      vitest:
-        specifier: 3.2.4
-        version: 3.2.4(lightningcss@1.33.0)(yaml@2.8.1)
-
 packages:
 
   '@esbuild/aix-ppc64@0.28.2':

@@ -1,10 +1,16 @@
-# 2026-09-17 — scene-graph, camera, hit-testing
+# 2026-09-17 — camera, hit-testing (scene-graph came and went)
 
-`scene-graph` and `camera` ported straight from the base project — their math doesn't care about
-`anchor` at all, which is exactly what ADR 002 predicted: the taskbar/window split is a rendering
-and picking concern, not a "what is world position" concern. Added one small thing camera didn't
-have: `worldSizeToScreen`, since `drawElementImage` (Step 5) needs a screen width/height, not just
-a screen x/y, and a size scales by zoom with no translation component.
+`camera` ported straight from the base project — its math doesn't care about `anchor` at all,
+which is exactly what ADR 002 predicted: the taskbar/window split is a rendering and picking
+concern, not a "what is position" concern. Added one small thing camera didn't have:
+`worldSizeToScreen`, since `drawElementImage` (Step 5) needs a screen width/height, not just a
+screen x/y, and a size scales by zoom with no translation component.
+
+This PR originally also ported `scene-graph` (a facade whose only job was calling
+`ensureWorld()` before reading a node's world position). ADR 003 then flattened the document
+model and removed `ensureWorld()` entirely — with nothing left for it to wrap, `scene-graph` was
+deleted rather than kept as a pass-through. `hit-testing` and the future renderer read `node.x`/
+`node.y` straight off the document.
 
 `hit-testing` is where `anchor` actually shows up. `hitTest` now takes a `Camera` and a
 screen-space point, resolves world position once, and picks per node using either the raw screen
