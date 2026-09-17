@@ -1,0 +1,27 @@
+{
+  "name": "os-canvas-engine",
+  "private": true,
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "dev": "pnpm --filter @os-canvas/shell dev",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check ."
+  },
+  "devDependencies": {
+    "lint-staged": "16.2.0",
+    "oxfmt": "0.59.0",
+    "oxlint": "1.74.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": ["oxfmt", "oxlint --fix"]
+  },
+  "engines": {
+    "node": "24.20.0",
+    "pnpm": "11.24.0"
+  },
+  "packageManager": "pnpm@11.24.0"
+}
