@@ -10,7 +10,7 @@ Each row below is its own feature branch, opened as its own PR — see the proje
 | 2 | Capability gate | done | `apps/shell` | [engineering note](./engineering-notes/2026-09-17-capability-gate.md) | — |
 | 3 | Document model (Window + Taskbar nodes) | done | `packages/document` | [document-model.md](./document-model.md), [engineering note](./engineering-notes/2026-09-17-document-model.md) | [002](./decisions/002-node-anchor-mode.md), [003](./decisions/003-flatten-document-model.md) |
 | 4 | Camera / hit-testing | done | `packages/camera`, `packages/hit-testing` | [engineering note](./engineering-notes/2026-09-17-spatial-packages.md) | — |
-| 5 | Renderer (HTML-in-Canvas) | todo | `packages/renderer` | — | — |
+| 5 | Renderer (HTML-in-Canvas) | done | `packages/renderer` | [renderer.md](./renderer.md), [engineering note](./engineering-notes/2026-09-17-renderer.md) | [004](./decisions/004-renderer-owns-mounts-host-owns-content.md) |
 | 6 | Runtime (frame loop) | todo | `packages/runtime` | — | — |
 | 7 | Shell app (desktop + taskbar + apps) | todo | `apps/shell` | — | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
 | — | GitHub Pages deploy | done | `.github/workflows/deploy-pages.yml` | [engineering note](./engineering-notes/2026-09-17-github-pages.md) | — |
@@ -32,3 +32,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-17 | Document model: `@os-canvas/document`, ADR 002 (anchor flag, one tree not two) |
 | 2026-09-17 | Spatial packages: scene-graph, camera (+ `worldSizeToScreen`), anchor- and zIndex-aware hit-testing |
 | 2026-09-17 | ADR 003: flattened the document model (no tree/reparent/dirty-sync); `@os-canvas/scene-graph` deleted, hit-testing reads x/y directly |
+| 2026-09-17 | Renderer: `@os-canvas/renderer` (`drawElementImage` per node in paint order, DPR-aware), ADR 004 (renderer owns mounts, host owns content); `paintOrder` moved into `document` |

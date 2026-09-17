@@ -1,9 +1,9 @@
 import { UnsupportedBrowser } from "./UnsupportedBrowser";
-import { detectHtmlInCanvasSupport } from "./detectHtmlInCanvasSupport";
+import { supportsHtmlInCanvas } from "@os-canvas/renderer";
 import { useState } from "react";
 
 export function App() {
-  const [supported] = useState(detectHtmlInCanvasSupport);
+  const [supported] = useState(supportsHtmlInCanvas);
 
   if (!supported) {
     return <UnsupportedBrowser />;

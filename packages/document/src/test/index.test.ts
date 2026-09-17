@@ -1,5 +1,5 @@
+import { DocumentModel, paintOrder } from "../index";
 import { describe, expect, it } from "vitest";
-import { DocumentModel } from "../index";
 
 const window = { anchor: "world" as const, contentKind: "notes" as const };
 const taskbar = { anchor: "screen" as const, contentKind: "taskbar" as const };
@@ -202,5 +202,25 @@ describe("createDocument", () => {
         ],
       }),
     ).toThrow("Duplicate node id: 1");
+  });
+});
+
+describe("paintOrder", () => {
+  it("sorts world nodes by zIndex, then screen nodes on top", () => {
+    const doc = new DocumentModel({ name: "Desktop" });
+    const bar = doc.addNode({ anchor: "screen", contentKind: "taskbar", x: 0, y: 0 });
+    const top = doc.addNode({ anchor: "world", contentKind: "notes", x: 0, y: 0, zIndex: 5 });
+    const bottom = doc.addNode({ anchor: "world", contentKind: "clock", x: 0, y: 0, zIndex: 1 });
+
+    expect(paintOrder(doc).map((node) => node.id)).toEqual([bottom.id, top.id, bar.id]);
+  });
+
+  it("returns a new array and leaves the store untouched", () => {
+    const doc = new DocumentModel({ name: "Desktop" });
+    const a = doc.addNode({ anchor: "world", contentKind: "notes", x: 0, y: 0, zIndex: 2 });
+    const b = doc.addNode({ anchor: "world", contentKind: "notes", x: 0, y: 0, zIndex: 1 });
+
+    expect(paintOrder(doc).map((node) => node.id)).toEqual([b.id, a.id]);
+    expect([...doc.nodes.keys()]).toEqual([a.id, b.id]);
   });
 });

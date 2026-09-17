@@ -1,0 +1,182 @@
+import {
+  CANVAS_CONTENT_ATTRIBUTE,
+  CANVAS_CONTENT_DRAWABLE,
+  DRAWABLE_ATTRIBUTE,
+  MOUNT_NODE_ID_ATTRIBUTE,
+  type Renderer,
+  type RendererOptions,
+} from "./types";
+import { type Node, paintOrder } from "@os-canvas/document";
+import { worldSizeToScreen, worldToScreen } from "@os-canvas/camera";
+
+interface ScreenRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Thrown by `drawElementImage` when a drawable has been added to the DOM but
+ * the browser hasn't recorded its first snapshot yet (Chromium: "No cached
+ * paint record for element."). Expected for a mount created this frame.
+ */
+function isSnapshotNotReady(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "InvalidStateError";
+}
+
+/**
+ * The mount is laid out at the node's world size (CSS px) so the browser's
+ * snapshot is recorded at 1:1; zoom is applied at draw time, not in layout.
+ * Minimized nodes stay mounted (so React state survives) but are made inert
+ * and hidden from assistive tech, since they're not drawn anywhere.
+ */
+function syncMount(node: Node, element: HTMLElement): void {
+  const width = `${node.width}px`;
+  const height = `${node.height}px`;
+  if (element.style.width !== width) {
+    element.style.width = width;
+  }
+  if (element.style.height !== height) {
+    element.style.height = height;
+  }
+
+  const hidden = node.state === "minimized";
+  if (element.inert !== hidden) {
+    element.inert = hidden;
+  }
+  if (hidden) {
+    element.setAttribute("aria-hidden", "true");
+  } else {
+    element.removeAttribute("aria-hidden");
+  }
+}
+
+function getContext2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Could not get a 2D context from the canvas");
+  }
+  return ctx;
+}
+
+function createRenderer(options: RendererOptions): Renderer {
+  const { canvas, doc, camera } = options;
+  const ctx = getContext2d(canvas);
+
+  canvas.setAttribute(CANVAS_CONTENT_ATTRIBUTE, CANVAS_CONTENT_DRAWABLE);
+
+  const mounts = new Map<Node["id"], HTMLElement>();
+  let cssWidth = canvas.width;
+  let cssHeight = canvas.height;
+  let dpr = 1;
+
+  function createMount(node: Node): HTMLElement {
+    const element = canvas.ownerDocument.createElement("div");
+    element.setAttribute(DRAWABLE_ATTRIBUTE, "");
+    element.setAttribute(MOUNT_NODE_ID_ATTRIBUTE, node.id);
+    canvas.append(element);
+    mounts.set(node.id, element);
+    options.onMount?.(node, element);
+    return element;
+  }
+
+  function removeMount(nodeId: Node["id"], element: HTMLElement): void {
+    options.onUnmount?.(nodeId, element);
+    element.remove();
+    mounts.delete(nodeId);
+  }
+
+  function syncMounts(): void {
+    for (const [nodeId, element] of mounts) {
+      if (!doc.nodes.has(nodeId)) {
+        removeMount(nodeId, element);
+      }
+    }
+    for (const node of doc.nodes.values()) {
+      const element = mounts.get(node.id) ?? createMount(node);
+      syncMount(node, element);
+    }
+  }
+
+  /** Where a node lands on screen: windows go through the camera, the taskbar doesn't (ADR 002). */
+  function screenRect(node: Node): ScreenRect {
+    if (node.anchor === "screen") {
+      return { height: node.height, width: node.width, x: node.x, y: node.y };
+    }
+    const position = worldToScreen({ x: node.x, y: node.y }, camera);
+    const size = worldSizeToScreen({ x: node.width, y: node.height }, camera);
+    return { height: size.y, width: size.x, x: position.x, y: position.y };
+  }
+
+  function drawNode(node: Node): void {
+    const element = mounts.get(node.id);
+    if (!element) {
+      return;
+    }
+    const rect = screenRect(node);
+    try {
+      ctx.drawElementImage(element, rect.x, rect.y, rect.width, rect.height);
+    } catch (error) {
+      if (!isSnapshotNotReady(error)) {
+        throw error;
+      }
+      /*
+       * First frame after mounting: nothing to draw yet. The browser fires
+       * `paint` once the snapshot exists; ask for it explicitly too.
+       */
+      canvas.requestPaint();
+    }
+  }
+
+  function resize(nextCssWidth: number, nextCssHeight: number, devicePixelRatio = 1): void {
+    cssWidth = nextCssWidth;
+    cssHeight = nextCssHeight;
+    dpr = devicePixelRatio;
+    canvas.width = Math.round(cssWidth * dpr);
+    canvas.height = Math.round(cssHeight * dpr);
+  }
+
+  function render(): void {
+    syncMounts();
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+    if (options.background) {
+      ctx.fillStyle = options.background;
+      ctx.fillRect(0, 0, cssWidth, cssHeight);
+    }
+
+    for (const node of paintOrder(doc)) {
+      if (node.state !== "minimized") {
+        drawNode(node);
+      }
+    }
+  }
+
+  function dispose(): void {
+    for (const [nodeId, element] of mounts) {
+      removeMount(nodeId, element);
+    }
+  }
+
+  return {
+    canvas,
+    dispose,
+    getMount: (nodeId) => mounts.get(nodeId),
+    render,
+    resize,
+    syncMounts,
+  };
+}
+
+export { createRenderer };
+export { supportsHtmlInCanvas } from "./types/html-in-canvas";
+export {
+  CANVAS_CONTENT_ATTRIBUTE,
+  CANVAS_CONTENT_DRAWABLE,
+  DRAWABLE_ATTRIBUTE,
+  MOUNT_NODE_ID_ATTRIBUTE,
+  type Renderer,
+  type RendererOptions,
+} from "./types";
