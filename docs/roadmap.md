@@ -8,7 +8,7 @@ Each row below is its own feature branch, opened as its own PR — see the proje
 |---|-------|--------|------|------|-----|
 | 1 | Repo scaffold | done | — | this file | — |
 | 2 | Capability gate | done | `apps/shell` | [engineering note](./engineering-notes/2026-09-17-capability-gate.md) | — |
-| 3 | Document model (Window + Taskbar nodes) | todo | `packages/document` | — | — |
+| 3 | Document model (Window + Taskbar nodes) | done | `packages/document` | [document-model.md](./document-model.md), [engineering note](./engineering-notes/2026-09-17-document-model.md) | [002](./decisions/002-node-anchor-mode.md) |
 | 4 | Scene graph / camera / hit-testing | todo | `packages/scene-graph`, `packages/camera`, `packages/hit-testing` | — | — |
 | 5 | Renderer (HTML-in-Canvas) | todo | `packages/renderer` | — | — |
 | 6 | Runtime (frame loop) | todo | `packages/runtime` | — | — |
@@ -29,3 +29,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-17 | ADR 001: shell app uses React + shadcn/ui (Base UI); engine packages stay vanilla TS |
 | 2026-09-17 | Capability gate: apps/shell (Vite + React) gates on `drawElementImage` support |
 | 2026-09-17 | GitHub Pages deploy wired up (deploy-pages workflow, Vite base path) |
+| 2026-09-17 | Document model: `@os-canvas/document`, ADR 002 (anchor flag, one tree not two) |
