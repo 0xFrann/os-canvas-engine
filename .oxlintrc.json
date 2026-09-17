@@ -16,7 +16,8 @@
     "unicorn/no-null": "off",
     "eslint/no-magic-numbers": "off",
     "typescript/method-signature-style": "off",
-    "eslint/max-statements": "off"
+    "eslint/max-statements": "off",
+    "eslint/max-params": "off"
   },
   "ignorePatterns": ["**/dist/**", "**/coverage/**", "**/node_modules/**"]
 }
