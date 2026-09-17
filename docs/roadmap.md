@@ -7,7 +7,7 @@ Each row below is its own feature branch, opened as its own PR — see the proje
 | # | Topic | Status | Code | Docs | ADR |
 |---|-------|--------|------|------|-----|
 | 1 | Repo scaffold | done | — | this file | — |
-| 2 | Capability gate | todo | `apps/shell` | — | — |
+| 2 | Capability gate | done | `apps/shell` | [engineering note](./engineering-notes/2026-09-17-capability-gate.md) | — |
 | 3 | Document model (Window + Taskbar nodes) | todo | `packages/document` | — | — |
 | 4 | Scene graph / camera / hit-testing | todo | `packages/scene-graph`, `packages/camera`, `packages/hit-testing` | — | — |
 | 5 | Renderer (HTML-in-Canvas) | todo | `packages/renderer` | — | — |
@@ -24,3 +24,4 @@ Each row below is its own feature branch, opened as its own PR — see the proje
 |------|----------------|
 | 2026-09-17 | Repo scaffolded; tooling, docs skeleton, and workflow in place |
 | 2026-09-17 | ADR 001: shell app uses React + shadcn/ui (Base UI); engine packages stay vanilla TS |
+| 2026-09-17 | Capability gate: apps/shell (Vite + React) gates on `drawElementImage` support |
