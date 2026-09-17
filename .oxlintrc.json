@@ -10,7 +10,9 @@
   },
   "rules": {
     "unicorn/no-empty-file": "off",
-    "eslint/id-length": "off"
+    "eslint/id-length": "off",
+    "unicorn/filename-case": "off",
+    "eslint/func-style": "off"
   },
   "ignorePatterns": ["**/dist/**", "**/coverage/**", "**/node_modules/**"]
 }

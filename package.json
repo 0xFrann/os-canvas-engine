@@ -17,7 +17,10 @@
     "oxlint": "1.74.0"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs}": ["oxfmt", "oxlint --fix"]
+    "*.{js,jsx,ts,tsx,mjs,cjs}": [
+      "oxfmt",
+      "oxlint --fix"
+    ]
   },
   "engines": {
     "node": "24.20.0",
