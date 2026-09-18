@@ -1,14 +1,18 @@
-import { Desktop } from "./Desktop";
 import { UnsupportedBrowser } from "./UnsupportedBrowser";
-import { supportsHtmlInCanvas } from "@os-canvas/renderer";
+import { detectHtmlInCanvasSupport } from "./detectHtmlInCanvasSupport";
 import { useState } from "react";
 
 export function App() {
-  const [supported] = useState(supportsHtmlInCanvas);
+  const [supported] = useState(detectHtmlInCanvasSupport);
 
   if (!supported) {
     return <UnsupportedBrowser />;
   }
 
-  return <Desktop />;
+  return (
+    <main className="ready">
+      <h1>HTML-in-Canvas supported ✅</h1>
+      <p>The desktop shell lands one visible feature at a time — see docs/roadmap.md.</p>
+    </main>
+  );
 }

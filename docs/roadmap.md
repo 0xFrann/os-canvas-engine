@@ -2,34 +2,58 @@
 
 Living plan for os-canvas-engine. Status: `todo` | `building` | `done`.
 
-Each row below is its own feature branch, opened as its own PR — see the project [README](../README.md) for the workflow.
+Each rung below is one user-visible feature, one branch, one PR. See **How we work** further down.
 
-| # | Topic | Status | Code | Docs | ADR |
-|---|-------|--------|------|------|-----|
-| 1 | Repo scaffold | done | — | this file | — |
-| 2 | Capability gate | done | `apps/shell` | [engineering note](./engineering-notes/2026-09-17-capability-gate.md) | — |
-| 3 | Document model (Window + Taskbar nodes) | done | `packages/document` | [document-model.md](./document-model.md), [engineering note](./engineering-notes/2026-09-17-document-model.md) | [002](./decisions/002-node-anchor-mode.md), [003](./decisions/003-flatten-document-model.md) |
-| 4 | Camera / hit-testing | done | `packages/camera`, `packages/hit-testing` | [engineering note](./engineering-notes/2026-09-17-spatial-packages.md) | — |
-| 5 | Renderer (HTML-in-Canvas) | done | `packages/renderer` | [renderer.md](./renderer.md), [engineering note](./engineering-notes/2026-09-17-renderer.md) | [004](./decisions/004-renderer-owns-mounts-host-owns-content.md) |
-| 6 | Runtime (frame loop) | todo | `packages/runtime` | — | — |
-| 7 | Shell app (desktop + taskbar + apps) | todo | `apps/shell` | — | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
-| — | GitHub Pages deploy | done | `.github/workflows/deploy-pages.yml` | [engineering note](./engineering-notes/2026-09-17-github-pages.md) | — |
+| # | Feature | Status | Code | Docs | ADR |
+|---|---------|--------|------|------|-----|
+| 0 | Repo scaffold, capability gate, GitHub Pages deploy | done | `apps/shell`, `.github/workflows/deploy-pages.yml` | [capability gate](./engineering-notes/2026-09-17-capability-gate.md), [pages](./engineering-notes/2026-09-17-github-pages.md) | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
+| 1 | A modal with a counter button, drawn through the canvas | todo | `apps/shell` | — | — |
+| 2 | Draw the modal somewhere other than (0, 0) | todo | `apps/shell` | — | — |
+| 3 | Drag the modal by its header | todo | `apps/shell` | — | — |
+| 4 | Make it a window (title, close, the reference desktop's window chrome) | todo | `apps/shell` | — | — |
+| 5 | A second window (overlap, click-to-raise, z-order) | todo | `apps/shell` | — | — |
+| 6 | Open and close apps from a dock (Example, Settings, Example Two) | todo | `apps/shell` | — | — |
+| 7 | The rest of the reference desktop (wallpaper, menu bar + fullscreen, boot splash, desktop icon grid, Settings background chooser) | todo | `apps/shell` | — | — |
+| 8 | Beyond the reference: what canvas makes possible (pan/zoom the desktop, …) | todo | — | — | — |
 
 Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-canvas-engine/) (deploys from `main` on every push).
 
-## Decisions made ahead of their step
+## What each rung forces us to answer
 
-- **Shell app stack:** `apps/shell`'s chrome (dock, menu bar, window title bars, Settings app) is React + shadcn/ui (Base UI). Engine packages (`document` → `runtime`) stay framework-agnostic vanilla TypeScript. See [ADR 001](./decisions/001-shell-app-react-shadcn-base-ui.md).
+1. **Counter modal** — real DOM inside `<canvas>`, one `drawElementImage`, click → increment → repaint. Attribute names, the paint event / `requestPaint`. Installs React + shadcn/ui (Base UI): Dialog, Button.
+2. **Draw it elsewhere** — clicks land in the wrong place: who owns the element's position (drawn rect vs DOM rect).
+3. **Drag it** — position changes every frame: how repaint is driven (paint event vs a frame loop).
+4. **Window** — the reference desktop's `apps-window` chrome and CSS variables.
+5. **Second window** — first time a list of nodes ("document") earns its place, because two things need ordering.
+6. **Dock** — the reference's apps; one window at a time (as the reference does) vs many is decided here.
+7. **Rest of the reference desktop** — the shell is complete as a port.
+8. **Beyond the reference** — picked and designed when we get there, not now.
+
+## How we work
+
+- **Feature first.** A rung starts with its [feature note](./features/README.md): the need, then the
+  smallest design that meets it, written before code. If designing it reveals a lower-level piece
+  is needed, that piece is built inside the same rung and only as big as the rung needs.
+- **Done means seen.** A rung is done when it's visible in Chrome Canary with
+  `chrome://flags/#canvas-draw-element` on. The PR carries a screenshot (`pnpm screenshot`) and the
+  feature note's **On screen** section says what was checked. Unit tests are welcome for pure
+  logic, but never stand in for the browser here — no test shim implements this API.
+- **Abstractions are extracted, not pre-built.** Everything lives in `apps/shell/src` until a rung
+  has two consumers for the same code, or the engine needs to be separable at that point. Only then
+  does a package under `packages/` appear.
+- **No invented content.** What the shell shows comes from the reference desktop
+  ([desktop-os-react-next](https://github.com/0xFrann/desktop-os-react-next)) or from an explicit
+  decision. The counter modal at rung 1 is such a decision.
+- **Docs:** ADRs in [`decisions/`](./decisions/) for real forks; dated learnings in
+  [`engineering-notes/`](./engineering-notes/).
 
 ## Session log
 
 | Date | What happened |
 |------|----------------|
 | 2026-09-17 | Repo scaffolded; tooling, docs skeleton, and workflow in place |
-| 2026-09-17 | ADR 001: shell app uses React + shadcn/ui (Base UI); engine packages stay vanilla TS |
+| 2026-09-17 | ADR 001: shell app uses React + shadcn/ui (Base UI) |
 | 2026-09-17 | Capability gate: apps/shell (Vite + React) gates on `drawElementImage` support |
 | 2026-09-17 | GitHub Pages deploy wired up (deploy-pages workflow, Vite base path) |
-| 2026-09-17 | Document model: `@os-canvas/document`, ADR 002 (anchor flag, one tree not two) |
-| 2026-09-17 | Spatial packages: scene-graph, camera (+ `worldSizeToScreen`), anchor- and zIndex-aware hit-testing |
-| 2026-09-17 | ADR 003: flattened the document model (no tree/reparent/dirty-sync); `@os-canvas/scene-graph` deleted, hit-testing reads x/y directly |
-| 2026-09-17 | Renderer: `@os-canvas/renderer` (`drawElementImage` per node in paint order, DPR-aware), ADR 004 (renderer owns mounts, host owns content); `paintOrder` moved into `document`. Wired into `apps/shell` (`Desktop.tsx`) and verified on Chrome 153: shipped builds need `layoutsubtree`, not just `content="drawable"`, and don't sync hit-test geometry from `drawElementImage` (renderer positions mounts with CSS transforms instead). `ContentKind` aligned with the reference desktop's apps |
+| 2026-09-17 | First attempt, layer by layer: document, camera, hit-testing, renderer packages (PRs #4–#7). Rendered on screen only at the very end, with one interaction wired |
+| 2026-09-18 | Reset to the CI commit. Roadmap rewritten as a feature ladder; packages removed; browser lessons kept in an [engineering note](./engineering-notes/2026-09-18-reset-to-feature-ladder.md); `pnpm screenshot` kept |

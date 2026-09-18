@@ -10,30 +10,21 @@ This only runs in **Chrome Canary 148+** with the `chrome://flags/#canvas-draw-e
 
 ## Why this exists
 
-This is a portfolio piece: an exploration of what a browser-native "OS" could look like once `<canvas>` can composite real DOM instead of only pixels. It's built on the architecture of [`interactive-canvas-engine`](https://github.com/0xFrann/interactive-canvas-engine) — a canvas-motor project (document model → scene graph → camera → hit testing → renderer → runtime) originally built as engineering interview prep — reused here as a proven layering, rewritten from scratch around HTML-in-Canvas rendering and an OS-shell demo instead of a board of shapes. The desktop-shell shape itself (dock, menu bar, app windows) also draws on an earlier DOM-only project, [Peacevoid OS](https://www.behance.net/gallery/194480187/THE-PEACEVOID-OS-Case-Study) ([desktop-os-react-next](https://github.com/0xFrann/desktop-os-react-next)) — this project asks what changes about that shell once the desktop surface itself is canvas-composited.
+This is a portfolio piece: an exploration of what a browser-native "OS" could look like once `<canvas>` can composite real DOM instead of only pixels. It's built on the architecture of [`interactive-canvas-engine`](https://github.com/0xFrann/interactive-canvas-engine) — a canvas-motor project (document model → scene graph → camera → hit testing → renderer → runtime) originally built as engineering interview prep — reused here for its reasoning (ADRs, notes, the same building blocks when a feature needs them), rewritten from scratch around HTML-in-Canvas rendering and an OS-shell demo instead of a board of shapes. The desktop-shell shape itself (dock, menu bar, app windows) also draws on an earlier DOM-only project, [Peacevoid OS](https://www.behance.net/gallery/194480187/THE-PEACEVOID-OS-Case-Study) ([desktop-os-react-next](https://github.com/0xFrann/desktop-os-react-next)) — this project asks what changes about that shell once the desktop surface itself is canvas-composited.
 
-## Packages
+## How this is built
 
-| Package | Role |
-|---------|------|
-| `@os-canvas/document` | Flat node store + Window/Taskbar model |
-| `@os-canvas/camera` | World ↔ screen (pan / zoom) |
-| `@os-canvas/hit-testing` | World- and screen-space node pick |
-| `@os-canvas/renderer` | HTML-in-Canvas paint (`drawElementImage`) |
-| `@os-canvas/runtime` | Frame loop |
-| `@os-canvas/shell` | The desktop-shell demo app |
-
-(Packages land incrementally — see [`docs/roadmap.md`](./docs/roadmap.md) for status.)
+Feature by feature, not layer by layer. The [roadmap](./docs/roadmap.md) is a ladder of user-visible rungs — a counter modal drawn through the canvas, then moving it, dragging it, making it a window, a second window, a dock, the rest of the reference desktop — and each rung is designed only as far as it needs, built, and looked at in Chrome Canary before the next one starts. Engine code (the "render engine" part of the name) is extracted into `packages/` when a rung makes a boundary obvious, not before. Each rung has a [feature note](./docs/features/README.md) with its need, its design, and what was verified on screen.
 
 ## Workflow
 
-Each roadmap step is its own feature branch and PR against `main`. Architecture decisions are recorded as ADRs in [`docs/decisions/`](./docs/decisions/), with short dated learning entries in [`docs/engineering-notes/`](./docs/engineering-notes/).
+Each roadmap rung is its own feature branch and PR against `main`, with a screenshot from Chrome Canary attached. Architecture decisions are recorded as ADRs in [`docs/decisions/`](./docs/decisions/), with short dated learning entries in [`docs/engineering-notes/`](./docs/engineering-notes/).
 
 ## Scripts
 
 - `pnpm install`
 - `pnpm dev` — run the shell app
-- `pnpm test` — unit tests across packages
-- `pnpm typecheck` — TypeScript across packages + app
+- `pnpm test` — unit tests (none yet)
+- `pnpm typecheck` — TypeScript
 - `pnpm lint` / `pnpm format`
 - `pnpm screenshot` — loads the running dev server in a headless Chrome with the HTML-in-Canvas flag and saves `screenshot.png` (see `scripts/screenshot.mjs` for `CHROME` / `URL` overrides)

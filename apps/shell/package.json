@@ -11,9 +11,6 @@
     "test": "echo \"no tests yet\" && exit 0"
   },
   "dependencies": {
-    "@os-canvas/camera": "workspace:*",
-    "@os-canvas/document": "workspace:*",
-    "@os-canvas/renderer": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
