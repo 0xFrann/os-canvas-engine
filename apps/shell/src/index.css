@@ -47,13 +47,6 @@ body {
   min-height: 100vh;
 }
 
-.unsupported {
-  max-width: 32rem;
-  margin: 0 auto;
-  padding: 2rem;
-  line-height: 1.5;
-}
-
 /* The canvas is the whole desktop surface. */
 .surface {
   display: block;
@@ -61,7 +54,7 @@ body {
   height: 100vh;
 }
 
-.unsupported code {
+code {
   background: color-mix(in srgb, currentColor 12%, transparent);
   padding: 0.15em 0.4em;
   border-radius: 0.3em;

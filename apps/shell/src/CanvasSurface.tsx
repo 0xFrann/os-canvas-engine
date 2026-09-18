@@ -80,12 +80,12 @@ export function CanvasSurface({ children }: { children: ReactNode }) {
     <SurfaceContext.Provider value={context}>
       <canvas
         ref={canvasRef}
-        className="surface"
+        className="surface bg-muted"
         layoutsubtree=""
         content="drawable"
         aria-label="Desktop"
       >
-        <div ref={mountRef} drawable="" className="w-max">
+        <div ref={mountRef} drawable="" className="w-max p-6">
           {children}
         </div>
       </canvas>

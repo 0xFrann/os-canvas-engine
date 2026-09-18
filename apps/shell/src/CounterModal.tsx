@@ -18,7 +18,7 @@ export function CounterModal() {
       <DialogPrimitive.Portal container={mountRef}>
         <DialogPrimitive.Popup
           data-slot="dialog-content"
-          className="grid w-sm gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none"
+          className="grid w-sm gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/10 outline-none"
         >
           <DialogHeader>
             <DialogTitle>Counter</DialogTitle>

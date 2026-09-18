@@ -21,7 +21,8 @@ with no Portal at all; Base UI 1.8 throws `<Dialog.Portal> is missing`, so it's 
 `container`.)
 
 - **DOM shape.** `<canvas layoutsubtree content="drawable">` fills the viewport. Its only child is
-  a `<div drawable>` holding the modal. React renders both, as ordinary JSX children of the
+  a `<div drawable>` holding the modal, with padding so the modal's ring and shadow have room
+  (see below for why). React renders both, as ordinary JSX children of the
   canvas. Canvas children are laid out but never painted by the page, so the only way the modal
   shows up is through the canvas.
 - **The modal.** shadcn Dialog (Base UI) with `open`, `modal={false}`, a Portal whose
@@ -59,3 +60,9 @@ Chrome for Testing 153 (`--enable-blink-features=CanvasDrawElement`), 1280×800,
   `requires the canvas to have the layoutsubtree attribute`. `layoutsubtree=""` / `drawable=""` fix it.
 - **Base UI 1.8 requires the Portal.** `Dialog.Popup` without one throws `<Dialog.Portal> is missing`.
   `<Dialog.Portal container={mountRef}>` keeps the popup inside the canvas.
+- **The snapshot includes ink outside the element's box.** With the popup at (0, 0) its 1px ring
+  looked cut off on the top and left: that pixel sits at -1 and falls off the canvas. Padding on
+  the mount (`p-6`) fixes it, and a `shadow-lg` added to check renders fully too — the snapshot is
+  not clipped to the border box, only to the mount. Good news for window chrome at rung 4.
+- **Fallback.** Along the way the unsupported-browser screen became a small card in the same
+  style: ![unsupported](./assets/01-unsupported.png)
