@@ -1,9 +1,16 @@
 import type { Document, Node } from "@os-canvas/document";
 import type { Camera } from "@os-canvas/camera";
 
-/** Attribute the renderer sets on the canvas so its descendants get laid out. */
+/**
+ * Canvas opt-in so its descendants get laid out. The explainer / Chromium
+ * main spell it `content="drawable"`; shipped Chrome builds (verified on
+ * 153) still only honor the older boolean `layoutsubtree`. Chromium reads
+ * `content` first and falls back to `layoutsubtree`, so the renderer sets
+ * both until the old name is removed (crbug.com/561849343).
+ */
 const CANVAS_CONTENT_ATTRIBUTE = "content";
 const CANVAS_CONTENT_DRAWABLE = "drawable";
+const CANVAS_LAYOUTSUBTREE_ATTRIBUTE = "layoutsubtree";
 /** Attribute a canvas descendant needs before `drawElementImage` accepts it. */
 const DRAWABLE_ATTRIBUTE = "drawable";
 /** Set on every mount so the DOM ↔ document link is inspectable in devtools. */
@@ -44,6 +51,7 @@ interface Renderer {
 export {
   CANVAS_CONTENT_ATTRIBUTE,
   CANVAS_CONTENT_DRAWABLE,
+  CANVAS_LAYOUTSUBTREE_ATTRIBUTE,
   DRAWABLE_ATTRIBUTE,
   MOUNT_NODE_ID_ATTRIBUTE,
   type RendererOptions,

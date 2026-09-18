@@ -1,6 +1,7 @@
 import {
   CANVAS_CONTENT_ATTRIBUTE,
   CANVAS_CONTENT_DRAWABLE,
+  CANVAS_LAYOUTSUBTREE_ATTRIBUTE,
   DRAWABLE_ATTRIBUTE,
   MOUNT_NODE_ID_ATTRIBUTE,
   type Renderer,
@@ -18,11 +19,19 @@ interface ScreenRect {
 
 /**
  * Thrown by `drawElementImage` when a drawable has been added to the DOM but
- * the browser hasn't recorded its first snapshot yet (Chromium: "No cached
- * paint record for element."). Expected for a mount created this frame.
+ * the browser hasn't recorded its first snapshot yet. Expected for a mount
+ * created this frame. Matched on Chromium's message on purpose: the same
+ * `InvalidStateError` name also covers real misconfiguration (e.g. the canvas
+ * missing its layout opt-in), and swallowing that would hide it behind an
+ * endless requestPaint loop — which is exactly what happened the first time
+ * this ran in a browser.
  */
 function isSnapshotNotReady(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "InvalidStateError";
+  return (
+    error instanceof DOMException &&
+    error.name === "InvalidStateError" &&
+    error.message.includes("No cached paint record")
+  );
 }
 
 /**
@@ -52,6 +61,35 @@ function syncMount(node: Node, element: HTMLElement): void {
   }
 }
 
+/**
+ * Shipped Chrome (153) records the transform `drawElementImage` was given
+ * but never applies it to DOM hit-testing, so every mount would keep
+ * answering pointer events at the canvas origin. Positioning the mount
+ * with a CSS transform moves its hit-test box (and its a11y geometry) to
+ * where it's drawn, and — per the explainer — the snapshot is recorded
+ * *before* CSS transforms, so the drawn pixels are unaffected. z-index
+ * mirrors paint order so the topmost drawn window is the one you click.
+ */
+function syncGeometry(
+  node: Node,
+  element: HTMLElement,
+  rect: ScreenRect,
+  paintIndex: number,
+): void {
+  let scale = 1;
+  if (node.width !== 0) {
+    scale = rect.width / node.width;
+  }
+  const transform = `translate(${rect.x}px, ${rect.y}px) scale(${scale})`;
+  if (element.style.transform !== transform) {
+    element.style.transform = transform;
+  }
+  const zIndex = String(paintIndex);
+  if (element.style.zIndex !== zIndex) {
+    element.style.zIndex = zIndex;
+  }
+}
+
 function getContext2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
@@ -65,6 +103,7 @@ function createRenderer(options: RendererOptions): Renderer {
   const ctx = getContext2d(canvas);
 
   canvas.setAttribute(CANVAS_CONTENT_ATTRIBUTE, CANVAS_CONTENT_DRAWABLE);
+  canvas.setAttribute(CANVAS_LAYOUTSUBTREE_ATTRIBUTE, "");
 
   const mounts = new Map<Node["id"], HTMLElement>();
   let cssWidth = canvas.width;
@@ -75,6 +114,9 @@ function createRenderer(options: RendererOptions): Renderer {
     const element = canvas.ownerDocument.createElement("div");
     element.setAttribute(DRAWABLE_ATTRIBUTE, "");
     element.setAttribute(MOUNT_NODE_ID_ATTRIBUTE, node.id);
+    // Needed for z-index to apply; the transform origin must match drawElementImage's (top-left).
+    element.style.position = "relative";
+    element.style.transformOrigin = "0 0";
     canvas.append(element);
     mounts.set(node.id, element);
     options.onMount?.(node, element);
@@ -109,12 +151,13 @@ function createRenderer(options: RendererOptions): Renderer {
     return { height: size.y, width: size.x, x: position.x, y: position.y };
   }
 
-  function drawNode(node: Node): void {
+  function drawNode(node: Node, paintIndex: number): void {
     const element = mounts.get(node.id);
     if (!element) {
       return;
     }
     const rect = screenRect(node);
+    syncGeometry(node, element, rect, paintIndex);
     try {
       ctx.drawElementImage(element, rect.x, rect.y, rect.width, rect.height);
     } catch (error) {
@@ -147,11 +190,11 @@ function createRenderer(options: RendererOptions): Renderer {
       ctx.fillRect(0, 0, cssWidth, cssHeight);
     }
 
-    for (const node of paintOrder(doc)) {
+    paintOrder(doc).forEach((node, paintIndex) => {
       if (node.state !== "minimized") {
-        drawNode(node);
+        drawNode(node, paintIndex);
       }
-    }
+    });
   }
 
   function dispose(): void {
@@ -175,6 +218,7 @@ export { supportsHtmlInCanvas } from "./types/html-in-canvas";
 export {
   CANVAS_CONTENT_ATTRIBUTE,
   CANVAS_CONTENT_DRAWABLE,
+  CANVAS_LAYOUTSUBTREE_ATTRIBUTE,
   DRAWABLE_ATTRIBUTE,
   MOUNT_NODE_ID_ATTRIBUTE,
   type Renderer,

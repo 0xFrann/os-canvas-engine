@@ -32,4 +32,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-17 | Document model: `@os-canvas/document`, ADR 002 (anchor flag, one tree not two) |
 | 2026-09-17 | Spatial packages: scene-graph, camera (+ `worldSizeToScreen`), anchor- and zIndex-aware hit-testing |
 | 2026-09-17 | ADR 003: flattened the document model (no tree/reparent/dirty-sync); `@os-canvas/scene-graph` deleted, hit-testing reads x/y directly |
-| 2026-09-17 | Renderer: `@os-canvas/renderer` (`drawElementImage` per node in paint order, DPR-aware), ADR 004 (renderer owns mounts, host owns content); `paintOrder` moved into `document` |
+| 2026-09-17 | Renderer: `@os-canvas/renderer` (`drawElementImage` per node in paint order, DPR-aware), ADR 004 (renderer owns mounts, host owns content); `paintOrder` moved into `document`. Wired into `apps/shell` (`Desktop.tsx`) and verified on Chrome 153: shipped builds need `layoutsubtree`, not just `content="drawable"`, and don't sync hit-test geometry from `drawElementImage` (renderer positions mounts with CSS transforms instead). `ContentKind` aligned with the reference desktop's apps |

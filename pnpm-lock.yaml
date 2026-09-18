@@ -20,6 +20,12 @@ importers:
 
   apps/shell:
     dependencies:
+      '@os-canvas/camera':
+        specifier: workspace:*
+        version: link:../../packages/camera
+      '@os-canvas/document':
+        specifier: workspace:*
+        version: link:../../packages/document
       '@os-canvas/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer

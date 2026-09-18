@@ -3,7 +3,7 @@ import { DocumentModel } from "@os-canvas/document";
 import { createCamera } from "@os-canvas/camera";
 import { createRenderer } from "../index";
 
-const win = { anchor: "world" as const, contentKind: "notes" as const };
+const win = { anchor: "world" as const, contentKind: "example" as const };
 const bar = { anchor: "screen" as const, contentKind: "taskbar" as const };
 
 /**
@@ -68,10 +68,11 @@ function setup(width?: number, height?: number) {
 }
 
 describe("createRenderer", () => {
-  it("opts the canvas into drawable content", () => {
+  it("opts the canvas into drawable content under both the new and the shipped attribute name", () => {
     const { canvas, doc, camera, raw } = setup();
     createRenderer({ camera, canvas, doc });
     expect(raw.getAttribute("content")).toBe("drawable");
+    expect(raw.hasAttribute("layoutsubtree")).toBe(true);
   });
 
   it("throws when the canvas has no 2D context", () => {
@@ -95,7 +96,7 @@ describe("syncMounts", () => {
     expect(mount.parent).toBe(raw);
     expect(mount.hasAttribute("drawable")).toBe(true);
     expect(mount.getAttribute("data-node-id")).toBe(node.id);
-    expect(mount.style).toEqual({ height: "120px", width: "200px" });
+    expect(mount.style).toMatchObject({ height: "120px", width: "200px" });
     expect(onMount).toHaveBeenCalledTimes(1);
     expect(onMount).toHaveBeenCalledWith(node, mount);
   });
@@ -123,7 +124,7 @@ describe("syncMounts", () => {
     renderer.syncMounts();
 
     const mount = renderer.getMount(node.id) as unknown as FakeElement;
-    expect(mount.style).toEqual({ height: "300px", width: "400px" });
+    expect(mount.style).toMatchObject({ height: "300px", width: "400px" });
   });
 
   it("removes the mount and reports it when a node is deleted", () => {
@@ -229,6 +230,40 @@ describe("render", () => {
     ]);
   });
 
+  it("moves each mount's hit-test box to where it is drawn, via CSS transform", () => {
+    const { canvas, doc, camera } = setup();
+    camera.x = 50;
+    camera.y = 25;
+    camera.zoom = 2;
+    const renderer = createRenderer({ camera, canvas, doc });
+    const pane = doc.addNode({ height: 120, width: 200, x: 100, y: 50, ...win });
+    const taskbar = doc.addNode({ height: 48, width: 800, x: 0, y: 752, ...bar });
+
+    renderer.render();
+
+    const winMount = renderer.getMount(pane.id) as unknown as FakeElement;
+    const barMount = renderer.getMount(taskbar.id) as unknown as FakeElement;
+    expect(winMount.style.transformOrigin).toBe("0 0");
+    expect(winMount.style.transform).toBe("translate(100px, 50px) scale(2)");
+    expect(barMount.style.transform).toBe("translate(0px, 752px) scale(1)");
+  });
+
+  it("stacks mounts with z-index in paint order so the topmost drawn node is hit first", () => {
+    const { canvas, doc, camera } = setup();
+    const renderer = createRenderer({ camera, canvas, doc });
+    const taskbar = doc.addNode({ x: 0, y: 0, ...bar });
+    const top = doc.addNode({ x: 0, y: 0, ...win, zIndex: 5 });
+    const bottom = doc.addNode({ x: 0, y: 0, ...win, zIndex: 1 });
+
+    renderer.render();
+
+    const z = (id: string) => (renderer.getMount(id) as unknown as FakeElement).style.zIndex;
+    expect(z(bottom.id)).toBe("0");
+    expect(z(top.id)).toBe("1");
+    expect(z(taskbar.id)).toBe("2");
+    expect((renderer.getMount(top.id) as unknown as FakeElement).style.position).toBe("relative");
+  });
+
   it("does not draw minimized nodes", () => {
     const { canvas, doc, camera, ctx } = setup();
     const renderer = createRenderer({ camera, canvas, doc });
@@ -281,6 +316,21 @@ describe("render", () => {
     });
 
     expect(() => renderer.render()).toThrow("not a canvas descendant");
+  });
+
+  it("does not mistake an InvalidStateError about misconfiguration for a missing snapshot", () => {
+    const { canvas, doc, camera, ctx, raw } = setup();
+    const renderer = createRenderer({ camera, canvas, doc });
+    doc.addNode({ x: 0, y: 0, ...win });
+    ctx.drawElementImage.mockImplementationOnce(() => {
+      throw new DOMException(
+        "DrawElementImage requires the canvas to have the layoutsubtree attribute.",
+        "InvalidStateError",
+      );
+    });
+
+    expect(() => renderer.render()).toThrow("layoutsubtree");
+    expect(raw.requestPaint).not.toHaveBeenCalled();
   });
 });
 

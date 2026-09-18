@@ -1,7 +1,7 @@
 import { DocumentModel, paintOrder } from "../index";
 import { describe, expect, it } from "vitest";
 
-const window = { anchor: "world" as const, contentKind: "notes" as const };
+const window = { anchor: "world" as const, contentKind: "example" as const };
 const taskbar = { anchor: "screen" as const, contentKind: "taskbar" as const };
 
 describe("createDocument", () => {
@@ -130,7 +130,7 @@ describe("createDocument", () => {
       expect.arrayContaining([
         {
           anchor: "world",
-          contentKind: "notes",
+          contentKind: "example",
           height: 320,
           id: win.id,
           state: "normal",
@@ -177,7 +177,7 @@ describe("createDocument", () => {
         nodes: [
           {
             anchor: "world",
-            contentKind: "notes",
+            contentKind: "example",
             height: 1,
             id: "1",
             state: "normal",
@@ -189,7 +189,7 @@ describe("createDocument", () => {
           },
           {
             anchor: "world",
-            contentKind: "notes",
+            contentKind: "example",
             height: 1,
             id: "1",
             state: "normal",
@@ -209,16 +209,22 @@ describe("paintOrder", () => {
   it("sorts world nodes by zIndex, then screen nodes on top", () => {
     const doc = new DocumentModel({ name: "Desktop" });
     const bar = doc.addNode({ anchor: "screen", contentKind: "taskbar", x: 0, y: 0 });
-    const top = doc.addNode({ anchor: "world", contentKind: "notes", x: 0, y: 0, zIndex: 5 });
-    const bottom = doc.addNode({ anchor: "world", contentKind: "clock", x: 0, y: 0, zIndex: 1 });
+    const top = doc.addNode({ anchor: "world", contentKind: "example", x: 0, y: 0, zIndex: 5 });
+    const bottom = doc.addNode({
+      anchor: "world",
+      contentKind: "exampletwo",
+      x: 0,
+      y: 0,
+      zIndex: 1,
+    });
 
     expect(paintOrder(doc).map((node) => node.id)).toEqual([bottom.id, top.id, bar.id]);
   });
 
   it("returns a new array and leaves the store untouched", () => {
     const doc = new DocumentModel({ name: "Desktop" });
-    const a = doc.addNode({ anchor: "world", contentKind: "notes", x: 0, y: 0, zIndex: 2 });
-    const b = doc.addNode({ anchor: "world", contentKind: "notes", x: 0, y: 0, zIndex: 1 });
+    const a = doc.addNode({ anchor: "world", contentKind: "example", x: 0, y: 0, zIndex: 2 });
+    const b = doc.addNode({ anchor: "world", contentKind: "example", x: 0, y: 0, zIndex: 1 });
 
     expect(paintOrder(doc).map((node) => node.id)).toEqual([b.id, a.id]);
     expect([...doc.nodes.keys()]).toEqual([a.id, b.id]);

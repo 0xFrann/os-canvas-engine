@@ -42,6 +42,9 @@ Option 3. Plus:
   draw time.
 - **`supportsHtmlInCanvas()` moves into the renderer package** next to the API typings;
   `apps/shell` imports it instead of owning a copy.
+- **The renderer also owns the mount's hit-test geometry**, via CSS `transform` + `z-index`
+  mirroring the drawn rect and paint order — because shipped Chrome doesn't sync it from
+  `drawElementImage` (see `docs/renderer.md`). The host still never touches mount styles.
 
 ## Why
 
@@ -66,7 +69,7 @@ is the explainer's own recommendation for "hidden views or no-longer-drawn conte
 
 **Easier now**
 
-- The shell app's job in Step 7 is one hook: `onMount: (node, el) => createRoot(el).render(<Window node={node} />)`.
+- The shell app's job is one hook: `onMount: (node, el) => createRoot(el).render(<WindowContent node={node} />)` — `apps/shell/src/Desktop.tsx` does exactly that today.
 - Renderer and picker can't drift on z-order.
 - Feature detection has one source of truth, typed next to the API it detects.
 
