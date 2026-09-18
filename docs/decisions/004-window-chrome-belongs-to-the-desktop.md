@@ -13,7 +13,7 @@ was a line of text with the popup's padding as dead margin around it, and the *a
 that decided it could be dragged — it imported the hook and picked the element. Every OS works the
 other way round: the window is the system's, the app is what's inside it.
 
-That question had to be answered before a second window, a dock, or focus exists, because all three
+That question had to be answered before more than one window, a dock, or focus exists, because all three
 assume a window that the desktop owns.
 
 ## Options

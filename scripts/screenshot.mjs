@@ -8,13 +8,20 @@
  *   URL=http://localhost:5174 OUT=x.png pnpm screenshot
  *   CHROME="/path/to/Chrome" pnpm screenshot
  *   CLICK="button" pnpm screenshot        # click the first match (center of its DOM rect) before shooting
+ *   CLICK=".a;.b" pnpm screenshot         # ...or several selectors, in order (open one app, then another)
+ *   HOVER=".dock-app" pnpm screenshot     # leave the pointer over the first match (hover states, tooltips)
  *   CLICK_AT="300,200" pnpm screenshot    # click at page coordinates instead (where something is *drawn*)
+ *   CLICK_AT="300,200;520,340" pnpm screenshot  # ...or several, in order (raise one thing, then use it)
  *   DRAG="300,200:520,340" pnpm screenshot  # press, move in steps, release (DRAG_STEPS=n, DRAG_STEP_MS=ms)
+ *   HIT_AT="300,200;520,340" pnpm screenshot  # report which drawable owns those points (who a click would reach)
  *   DPR=2 pnpm screenshot                 # emulate a 2x display
  *
- * A DRAG runs before a CLICK, so one run can drag something and then click it where it landed.
- * While either happens, the page counts the canvas's `paint` events and the pointer events the
- * drag produced, and the summary reports them — that's how repaint rate gets looked at.
+ * One run does its actions in this order: CLICK (selectors), then DRAG, then CLICK_AT (points).
+ * Selectors act on the page's own chrome — a dock icon that opens a window — so they go first;
+ * points act on what is *drawn*, which those windows are, so they go last and can use where a drag
+ * left something. While any of it happens, the page counts the canvas's `paint` events and the
+ * pointer events the drag produced, and the summary reports them — that's how repaint rate gets
+ * looked at.
  *
  * Also prints console output from the page and a summary of the canvas's
  * drawable mounts, which is usually enough to tell *why* a screenshot is blank.
@@ -29,9 +36,13 @@ const out = process.env.OUT ?? "screenshot.png";
 const waitMs = Number(process.env.WAIT_MS ?? 3000);
 const port = Number(process.env.CDP_PORT ?? 9333);
 const [width, height] = (process.env.SIZE ?? "1280x800").split("x").map(Number);
-const click = process.env.CLICK;
+const click = process.env.CLICK?.split(";");
+const hover = process.env.HOVER;
 const dpr = Number(process.env.DPR ?? 1);
-const clickAt = process.env.CLICK_AT?.split(",").map(Number);
+/** `x,y` or `x1,y1;x2,y2;…` — one point, or several to visit in order. */
+const points = (value) => value?.split(";").map((p) => p.split(",").map(Number));
+const clickAt = points(process.env.CLICK_AT);
+const hitAt = points(process.env.HIT_AT);
 const drag = process.env.DRAG?.split(":").map((p) => p.split(",").map(Number));
 const dragSteps = Number(process.env.DRAG_STEPS ?? 24);
 const dragStepMs = Number(process.env.DRAG_STEP_MS ?? 8);
@@ -170,7 +181,40 @@ try {
     send("Runtime.evaluate", { expression, returnByValue: true }, sessionId).then(
       (r) => r.result.value,
     );
-  if (drag || click || clickAt) {
+  /** Where to aim at a selector: the center of the first match's DOM rect, or null. */
+  const centerOf = (selector) =>
+    probe(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    })()`);
+  /** Clicks each target in turn, reporting what one cost in paint events. */
+  const clickTargets = async (targets) => {
+    // Sequential on purpose: press must land before release, and one click before the next.
+    /* oxlint-disable no-await-in-loop */
+    for (const { label, point } of targets) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
+        await send(
+          "Input.dispatchMouseEvent",
+          { button: "left", clickCount: 1, type, ...point },
+          sessionId,
+        );
+      }
+      await new Promise((r) => setTimeout(r, 500));
+      const paints = await probe(`(() => {
+        const { paints } = window.__probe;
+        window.__probe.paints = 0;
+        return paints;
+      })()`);
+      console.log(
+        `clicked ${label} at ${Math.round(point.x)},${Math.round(point.y)}: ${paints} paint events`,
+      );
+    }
+    /* oxlint-enable no-await-in-loop */
+  };
+
+  if (drag || click || clickAt || hover) {
     await probe(`(() => {
       const counts = { paints: 0, pointerdown: 0, pointermove: 0, pointerup: 0, since: performance.now() };
       window.__probe = counts;
@@ -187,6 +231,22 @@ try {
       return { paints, ms: Math.round(performance.now() - since) };
     })()`);
     console.log(`idle: ${idle.paints} paint events in ${idle.ms}ms`);
+  }
+
+  if (click) {
+    /*
+     * Each selector is resolved right before it is clicked, on purpose: a click can add the
+     * element that the next one matches (a dock icon opens the window whose close button follows).
+     */
+    /* oxlint-disable no-await-in-loop */
+    for (const selector of click) {
+      const point = await centerOf(selector);
+      if (!point) {
+        throw new Error(`CLICK: nothing matches ${selector}`);
+      }
+      await clickTargets([{ label: selector, point }]);
+    }
+    /* oxlint-enable no-await-in-loop */
   }
 
   if (drag) {
@@ -237,44 +297,26 @@ try {
     );
   }
 
-  if (click || clickAt) {
-    let target = click;
-    let point = null;
-    if (clickAt) {
-      target = `(${clickAt.join(", ")})`;
-      point = { x: clickAt[0], y: clickAt[1] };
-    } else {
-      const { result } = await send(
-        "Runtime.evaluate",
-        {
-          expression: `(() => {
-          const el = document.querySelector(${JSON.stringify(click)});
-          if (!el) return null;
-          const r = el.getBoundingClientRect();
-          return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-        })()`,
-          returnByValue: true,
-        },
-        sessionId,
-      );
-      point = result.value;
-    }
+  if (clickAt) {
+    await clickTargets(clickAt.map(([x, y]) => ({ label: `(${x}, ${y})`, point: { x, y } })));
+  }
+
+  if (hover) {
+    const point = await centerOf(hover);
     if (!point) {
-      throw new Error(`CLICK: nothing matches ${click}`);
+      throw new Error(`HOVER: nothing matches ${hover}`);
     }
-    // Sequential on purpose: press must land before release.
-    /* oxlint-disable no-await-in-loop */
-    for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
-      await send(
-        "Input.dispatchMouseEvent",
-        { button: "left", clickCount: 1, type, ...point },
-        sessionId,
-      );
-    }
-    /* oxlint-enable no-await-in-loop */
-    console.log(`clicked ${target} at ${Math.round(point.x)},${Math.round(point.y)}`);
+    await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point }, sessionId);
+    // Long enough for a hover transition to finish and a tooltip to render.
     await new Promise((r) => setTimeout(r, 500));
-    console.log(`after the click: ${await probe("window.__probe.paints")} paint events`);
+    const paints = await probe(`(() => {
+      const { paints } = window.__probe;
+      window.__probe.paints = 0;
+      return paints;
+    })()`);
+    console.log(
+      `hovering ${hover} at ${Math.round(point.x)},${Math.round(point.y)}: ${paints} paint events`,
+    );
   }
 
   const { result } = await send(
@@ -290,8 +332,15 @@ try {
           mounts: [...canvas.querySelectorAll("[drawable]")].map((el) => {
             const r = el.getBoundingClientRect();
             return {
-              domRect: [r.x, r.y, r.width, r.height].map(Math.round).join(" "), inert: el.inert, text: el.textContent.slice(0, 40),
+              domRect: [r.x, r.y, r.width, r.height].map(Math.round).join(" "), zIndex: el.style.zIndex, inert: el.inert, text: el.textContent.slice(0, 40),
             };
+          }),
+          // Who a click at each HIT_AT point would reach: the drawable that owns the topmost element there.
+          hits: ${JSON.stringify(hitAt ?? [])}.map(([x, y]) => {
+            const el = document.elementFromPoint(x, y);
+            const mount = el && el.closest("[drawable]");
+            const owner = mount ? "drawable z" + mount.style.zIndex + " " + mount.textContent.slice(0, 20) : (el ? el.tagName.toLowerCase() + (el.closest(".desktop") ? " in .desktop" : " outside .desktop") : "nothing");
+            return x + "," + y + " -> " + owner;
           }),
         };
       })()`,

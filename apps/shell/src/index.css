@@ -41,9 +41,10 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   /*
-   * Window chrome, ported as-is from the reference desktop (desktop-os-react-next):
+   * Desktop chrome, ported as-is from the reference desktop (desktop-os-react-next):
    * global.scss's --windowBackground / --windowGrey / --borderColor / --bodyColor and
-   * apps-window.scss's --windowBorderRadius. The desktop draws every window with these.
+   * apps-window.scss's --windowBorderRadius. Named after the window because the window ported them
+   * first; the dock uses them too, so the desktop's chrome reads as one thing.
    */
   --window: #f5f5f5;
   --window-header: #e7e7e7;
@@ -62,6 +63,11 @@ body {
   display: block;
   width: 100vw;
   height: 100vh;
+}
+
+/* The desktop: the canvas, with the chrome that is not drawn laid over it. */
+.desktop {
+  position: relative;
 }
 
 code {
