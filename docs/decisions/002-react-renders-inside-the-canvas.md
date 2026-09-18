@@ -1,6 +1,6 @@
 # ADR 002: React renders content directly inside the canvas; portals target the drawable mount
 
-- **Status:** Accepted
+- **Status:** Partly superseded by [ADR 003](./003-engine-is-a-library-plugged-into-react.md) — React still renders the canvas and its drawable children, but the draw and geometry logic moved out of components into `@os-canvas/engine`
 - **Date:** 2026-09-18
 - **Topic:** Who owns the DOM node that `drawElementImage` draws
 - **Feature:** [counter modal](../features/counter-modal.md)
