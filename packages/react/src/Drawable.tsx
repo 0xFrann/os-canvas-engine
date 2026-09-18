@@ -3,66 +3,100 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useRef,
+  useState,
   type ComponentProps,
   type ReactNode,
+  type RefCallback,
   type RefObject,
 } from "react";
 import { useEngine } from "./CanvasSurface";
 
-const MountContext = createContext<RefObject<HTMLDivElement | null> | null>(null);
+interface DrawableContextValue {
+  mountRef: RefObject<HTMLDivElement | null>;
+  /** The registered item, or null until the engine has it (one render, right after mount). */
+  item: DrawableItem | null;
+}
+
+const DrawableContext = createContext<DrawableContextValue | null>(null);
+
+function useDrawableContext(hook: string) {
+  const value = useContext(DrawableContext);
+  if (!value) {
+    throw new Error(`${hook} must be used inside <Drawable>`);
+  }
+  return value;
+}
 
 /**
  * The drawn element the calling content lives in. Anything that portals (dialogs, menus,
  * tooltips) must target it to stay inside the canvas, e.g. `<Dialog.Portal container={mount}>`.
  */
 export function useDrawableMount() {
-  const ref = useContext(MountContext);
-  if (!ref) {
-    throw new Error("useDrawableMount must be used inside <Drawable>");
-  }
-  return ref;
+  return useDrawableContext("useDrawableMount").mountRef;
+}
+
+/**
+ * A ref for the element that drags the drawable it's in — a window header, typically:
+ * `<DialogHeader ref={useDragHandle()}>`. The engine owns the gesture and the position; this hook
+ * only hands it the element, so no coordinate ever reaches React.
+ *
+ * It's a callback ref on purpose: the handle can appear in a later commit than the one that
+ * registered the drawable (a portalled dialog popup does), and a ref object filled after the fact
+ * would never reach the engine.
+ */
+export function useDragHandle<T extends HTMLElement = HTMLElement>(): RefCallback<T> {
+  const { item } = useDrawableContext("useDragHandle");
+  const [handle, setHandle] = useState<T | null>(null);
+
+  useEffect(() => {
+    if (!item || !handle) {
+      return;
+    }
+    return item.addDragHandle(handle);
+  }, [handle, item]);
+
+  return setHandle;
 }
 
 export type DrawableProps = Omit<ComponentProps<"div">, "children"> & {
   children?: ReactNode;
-  /** Where the engine draws this element, in CSS pixels of the canvas. */
-  position: Position;
+  /** Where the engine first draws this element, in CSS pixels of the canvas. */
+  initialPosition: Position;
 };
 
 /**
- * A DOM element the engine draws at `position`. Registers itself with the engine on mount and
- * forwards position changes; the engine owns where it's drawn and where it's hit-tested, so never
- * set a `transform` on it yourself.
+ * A DOM element the engine draws. `initialPosition` seeds it; from then on the engine owns where
+ * it's drawn and where it's hit-tested — dragging it does not re-render anything here — so never
+ * keep its position in state and never set a `transform` on it yourself.
  */
-export function Drawable({ children, position, ...divProps }: DrawableProps) {
+export function Drawable({ children, initialPosition, ...divProps }: DrawableProps) {
   const engine = useEngine();
   const mountRef = useRef<HTMLDivElement>(null);
-  const itemRef = useRef<DrawableItem | null>(null);
+  const [item, setItem] = useState<DrawableItem | null>(null);
 
   useEffect(() => {
     const element = mountRef.current;
     if (!engine || !element) {
       return;
     }
-    const item = engine.add(element, position);
-    itemRef.current = item;
+    const added = engine.add(element, initialPosition);
+    setItem(added);
     return () => {
-      item.remove();
-      itemRef.current = null;
+      added.remove();
+      setItem(null);
     };
-    // The initial position is read once here; later changes go through moveTo below.
+    // The position is read once, on registration: it's the engine's from there on.
   }, [engine]);
 
-  useEffect(() => {
-    itemRef.current?.moveTo(position);
-  }, [position.x, position.y]);
+  const context = useMemo(() => ({ item, mountRef }), [item]);
 
   return (
-    <MountContext.Provider value={mountRef}>
+    <DrawableContext.Provider value={context}>
       <div ref={mountRef} {...divProps}>
         {children}
       </div>
-    </MountContext.Provider>
+    </DrawableContext.Provider>
   );
 }

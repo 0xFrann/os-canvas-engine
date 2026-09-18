@@ -10,7 +10,7 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 | Repo scaffold, capability gate, GitHub Pages deploy | done | `apps/shell`, `.github/workflows/deploy-pages.yml` | [capability gate](./engineering-notes/2026-09-17-capability-gate.md), [pages](./engineering-notes/2026-09-17-github-pages.md) | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
 | A modal with a counter button, drawn through the canvas | done | `apps/shell` | [feature note](./features/counter-modal.md), [engineering note](./engineering-notes/2026-09-18-counter-modal.md) |[002](./decisions/002-react-renders-inside-the-canvas.md) |
 | Draw the modal somewhere other than (0, 0) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/modal-position.md) | [003](./decisions/003-engine-is-a-library-plugged-into-react.md) |
-| Drag the modal by its header | todo | `apps/shell` | — | — |
+| Drag the modal by its header | building | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/modal-drag.md), [engineering note](./engineering-notes/2026-09-18-drag-repaint.md) | — |
 | Make it a window (title, close, the reference desktop's window chrome) | todo | `apps/shell` | — | — |
 | A second window (overlap, click-to-raise, z-order) | todo | `apps/shell` | — | — |
 | Open and close apps from a dock (Example, Settings, Example Two) | todo | `apps/shell` | — | — |
@@ -64,3 +64,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-18 | Counter modal drawn through the canvas (React + shadcn/Base UI + Tailwind installed). Chrome fires `paint` by itself on child changes; React needs `layoutsubtree=""` not `{true}`; Base UI needs a Portal with `container` |
 | 2026-09-18 | ADR 002: React renders content directly inside the canvas; portals target the drawable mount |
 | 2026-09-18 | Modal drawn at a position: Chrome 153 keeps hit-testing the mount at (0, 0); the engine writes the returned DOMMatrix to the element's transform (Chrome's documented idiom). `drawElementImage` takes backing-store coordinates, so no `ctx.scale(dpr)`. ADR 003: the engine is a library (`packages/engine`), the desktop a React app that plugs it in |
+| 2026-09-18 | Modal dragged by its header: the engine owns the gesture (`item.addDragHandle`) and the position; repaint stays driven by Chrome's `paint` event with a dirty flag, no frame loop — Chrome coalesces pointer moves to about one per frame by itself. A ref object never reaches a portalled handle; the binding hands out a callback ref |

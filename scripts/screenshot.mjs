@@ -9,7 +9,12 @@
  *   CHROME="/path/to/Chrome" pnpm screenshot
  *   CLICK="button" pnpm screenshot        # click the first match (center of its DOM rect) before shooting
  *   CLICK_AT="300,200" pnpm screenshot    # click at page coordinates instead (where something is *drawn*)
+ *   DRAG="300,200:520,340" pnpm screenshot  # press, move in steps, release (DRAG_STEPS=n, DRAG_STEP_MS=ms)
  *   DPR=2 pnpm screenshot                 # emulate a 2x display
+ *
+ * A DRAG runs before a CLICK, so one run can drag something and then click it where it landed.
+ * While either happens, the page counts the canvas's `paint` events and the pointer events the
+ * drag produced, and the summary reports them — that's how repaint rate gets looked at.
  *
  * Also prints console output from the page and a summary of the canvas's
  * drawable mounts, which is usually enough to tell *why* a screenshot is blank.
@@ -27,6 +32,9 @@ const [width, height] = (process.env.SIZE ?? "1280x800").split("x").map(Number);
 const click = process.env.CLICK;
 const dpr = Number(process.env.DPR ?? 1);
 const clickAt = process.env.CLICK_AT?.split(",").map(Number);
+const drag = process.env.DRAG?.split(":").map((p) => p.split(",").map(Number));
+const dragSteps = Number(process.env.DRAG_STEPS ?? 24);
+const dragStepMs = Number(process.env.DRAG_STEP_MS ?? 8);
 
 function findChrome() {
   if (process.env.CHROME) {
@@ -154,6 +162,81 @@ try {
   await send("Page.navigate", { url }, sessionId);
   await new Promise((r) => setTimeout(r, waitMs));
 
+  /*
+   * Counts what the browser does on its own (idle) and then what the drag/click causes. The page
+   * is the only place that can see `paint` events, so the counters live there.
+   */
+  const probe = (expression) =>
+    send("Runtime.evaluate", { expression, returnByValue: true }, sessionId).then(
+      (r) => r.result.value,
+    );
+  if (drag || click || clickAt) {
+    await probe(`(() => {
+      const counts = { paints: 0, pointerdown: 0, pointermove: 0, pointerup: 0, since: performance.now() };
+      window.__probe = counts;
+      document.querySelector("canvas")?.addEventListener("paint", () => counts.paints++);
+      for (const type of ["pointerdown", "pointermove", "pointerup"]) {
+        window.addEventListener(type, () => counts[type]++, true);
+      }
+    })()`);
+    // A second of nothing: any paint counted here is the engine painting itself in a loop.
+    await new Promise((r) => setTimeout(r, 1000));
+    const idle = await probe(`(() => {
+      const { paints, since } = window.__probe;
+      Object.assign(window.__probe, { paints: 0, pointerdown: 0, pointermove: 0, pointerup: 0, since: performance.now() });
+      return { paints, ms: Math.round(performance.now() - since) };
+    })()`);
+    console.log(`idle: ${idle.paints} paint events in ${idle.ms}ms`);
+  }
+
+  if (drag) {
+    const [[fromX, fromY], [toX, toY]] = drag;
+    // Sequential on purpose: a press, then moves in order, then the release.
+    /* oxlint-disable no-await-in-loop */
+    await send(
+      "Input.dispatchMouseEvent",
+      { button: "left", buttons: 0, type: "mouseMoved", x: fromX, y: fromY },
+      sessionId,
+    );
+    await send(
+      "Input.dispatchMouseEvent",
+      { button: "left", buttons: 1, clickCount: 1, type: "mousePressed", x: fromX, y: fromY },
+      sessionId,
+    );
+    for (let step = 1; step <= dragSteps; step++) {
+      const t = step / dragSteps;
+      await send(
+        "Input.dispatchMouseEvent",
+        {
+          button: "left",
+          buttons: 1,
+          type: "mouseMoved",
+          x: Math.round(fromX + (toX - fromX) * t),
+          y: Math.round(fromY + (toY - fromY) * t),
+        },
+        sessionId,
+      );
+      await new Promise((r) => setTimeout(r, dragStepMs));
+    }
+    await send(
+      "Input.dispatchMouseEvent",
+      { button: "left", buttons: 0, clickCount: 1, type: "mouseReleased", x: toX, y: toY },
+      sessionId,
+    );
+    /* oxlint-enable no-await-in-loop */
+    await new Promise((r) => setTimeout(r, 300));
+    const counts = await probe(`(() => {
+      const { paints, pointerdown, pointermove, pointerup, since } = window.__probe;
+      Object.assign(window.__probe, { paints: 0, pointerdown: 0, pointermove: 0, pointerup: 0, since: performance.now() });
+      return { paints, pointerdown, pointermove, pointerup, ms: Math.round(performance.now() - since) };
+    })()`);
+    console.log(
+      `dragged (${fromX}, ${fromY}) → (${toX}, ${toY}) in ${dragSteps} moves: ` +
+        `${counts.pointermove} pointermove, ${counts.paints} paint events in ${counts.ms}ms ` +
+        `(down ${counts.pointerdown}, up ${counts.pointerup})`,
+    );
+  }
+
   if (click || clickAt) {
     let target = click;
     let point = null;
@@ -191,6 +274,7 @@ try {
     /* oxlint-enable no-await-in-loop */
     console.log(`clicked ${target} at ${Math.round(point.x)},${Math.round(point.y)}`);
     await new Promise((r) => setTimeout(r, 500));
+    console.log(`after the click: ${await probe("window.__probe.paints")} paint events`);
   }
 
   const { result } = await send(
