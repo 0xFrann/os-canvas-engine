@@ -1,6 +1,6 @@
 # 01 — A modal with a counter button, drawn through the canvas
 
-Branch `feat/01-counter-modal`.
+Branch `feat/01-counter-modal`. Decision: [ADR 002](../decisions/002-react-renders-inside-the-canvas.md).
 
 ## Need
 

@@ -8,7 +8,7 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 | Feature | Status | Code | Docs | ADR |
 |---------|--------|------|------|-----|
 | Repo scaffold, capability gate, GitHub Pages deploy | done | `apps/shell`, `.github/workflows/deploy-pages.yml` | [capability gate](./engineering-notes/2026-09-17-capability-gate.md), [pages](./engineering-notes/2026-09-17-github-pages.md) | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
-| A modal with a counter button, drawn through the canvas | done | `apps/shell` | [feature note](./features/counter-modal.md), [engineering note](./engineering-notes/2026-09-18-counter-modal.md) | — |
+| A modal with a counter button, drawn through the canvas | done | `apps/shell` | [feature note](./features/counter-modal.md), [engineering note](./engineering-notes/2026-09-18-counter-modal.md) |[002](./decisions/002-react-renders-inside-the-canvas.md) |
 | Draw the modal somewhere other than (0, 0) | todo | `apps/shell` | — | — |
 | Drag the modal by its header | todo | `apps/shell` | — | — |
 | Make it a window (title, close, the reference desktop's window chrome) | todo | `apps/shell` | — | — |
@@ -59,3 +59,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-17 | First attempt, layer by layer: document, camera, hit-testing, renderer packages (PRs #4–#7). Rendered on screen only at the very end, with one interaction wired |
 | 2026-09-18 | Reset to the CI commit. Roadmap rewritten around features; packages removed; browser lessons kept in an [engineering note](./engineering-notes/2026-09-18-reset-to-feature-roadmap.md); `pnpm screenshot` kept |
 | 2026-09-18 | Counter modal drawn through the canvas (React + shadcn/Base UI + Tailwind installed). Chrome fires `paint` by itself on child changes; React needs `layoutsubtree=""` not `{true}`; Base UI needs a Portal with `container` |
+| 2026-09-18 | ADR 002: React renders content directly inside the canvas; portals target the drawable mount |
