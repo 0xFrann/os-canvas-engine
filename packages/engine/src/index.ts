@@ -1,4 +1,5 @@
 import "./html-in-canvas";
+import { attachDragHandle } from "./drag";
 
 /** Shipped Chrome (153) wants this boolean attribute on the canvas. */
 export const LAYOUTSUBTREE_ATTRIBUTE = "layoutsubtree";
@@ -18,6 +19,14 @@ export interface DrawableItem {
   readonly element: HTMLElement;
   readonly position: Readonly<Position>;
   moveTo(position: Position): void;
+  /**
+   * Makes `handle` drag this item: pressing it and moving the pointer moves the item by the same
+   * delta. The handle is usually part of the drawn content (a window header, edge to edge); a press
+   * on a control inside it (button, link, field) reaches the control instead of dragging.
+   *
+   * @returns a function that ends any gesture in flight and detaches the handle.
+   */
+  addDragHandle(handle: HTMLElement): () => void;
   remove(): void;
 }
 
@@ -46,9 +55,26 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
 
   const items = new Map<HTMLElement, Position>();
 
-  const requestPaint = () => canvas.requestPaint();
+  /*
+   * How repaint is driven: the browser's paint cycle is the frame loop. The engine marks itself
+   * dirty and asks for one paint; the `paint` handler clears the mark as it draws. A burst of
+   * moves inside one frame therefore costs one `requestPaint()`, and the engine never runs a
+   * requestAnimationFrame loop of its own.
+   */
+  let paintPending = false;
+  const requestPaint = () => {
+    paintPending = true;
+    canvas.requestPaint();
+  };
+  /** Ask for a paint unless one is already on its way. Used by everything that changes the scene. */
+  const schedulePaint = () => {
+    if (!paintPending) {
+      requestPaint();
+    }
+  };
 
   const render = () => {
+    paintPending = false;
     const dpr = window.devicePixelRatio;
     const { width, height } = canvas.getBoundingClientRect();
     const backingWidth = Math.round(width * dpr);
@@ -73,7 +99,12 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     for (const [element, position] of items) {
       const transform = ctx.drawElementImage(element, position.x * dpr, position.y * dpr);
       if (transform) {
-        element.style.transform = transform.toString();
+        // Only when it actually changed: a style write on a drawable child is itself a reason for
+        // Chrome to fire another `paint`, which would turn an idle canvas into a paint loop.
+        const next = transform.toString();
+        if (element.style.transform !== next) {
+          element.style.transform = next;
+        }
       }
     }
   };
@@ -88,12 +119,15 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       const current = { ...position };
       items.set(element, current);
       requestPaint();
-      return {
+      const item: DrawableItem = {
+        addDragHandle(handle) {
+          return attachDragHandle(handle, item);
+        },
         element,
         moveTo(next) {
           current.x = next.x;
           current.y = next.y;
-          requestPaint();
+          schedulePaint();
         },
         get position() {
           return current;
@@ -105,6 +139,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
           requestPaint();
         },
       };
+      return item;
     },
     canvas,
     dispose() {

@@ -10,8 +10,7 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 | Repo scaffold, capability gate, GitHub Pages deploy | done | `apps/shell`, `.github/workflows/deploy-pages.yml` | [capability gate](./engineering-notes/2026-09-17-capability-gate.md), [pages](./engineering-notes/2026-09-17-github-pages.md) | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
 | A modal with a counter button, drawn through the canvas | done | `apps/shell` | [feature note](./features/counter-modal.md), [engineering note](./engineering-notes/2026-09-18-counter-modal.md) |[002](./decisions/002-react-renders-inside-the-canvas.md) |
 | Draw the modal somewhere other than (0, 0) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/modal-position.md) | [003](./decisions/003-engine-is-a-library-plugged-into-react.md) |
-| Drag the modal by its header | todo | `apps/shell` | — | — |
-| Make it a window (title, close, the reference desktop's window chrome) | todo | `apps/shell` | — | — |
+| A window with a draggable header (the reference desktop's window chrome) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/window-drag.md), [engineering note](./engineering-notes/2026-09-18-drag-repaint.md) | [004](./decisions/004-window-chrome-belongs-to-the-desktop.md) |
 | A second window (overlap, click-to-raise, z-order) | todo | `apps/shell` | — | — |
 | Open and close apps from a dock (Example, Settings, Example Two) | todo | `apps/shell` | — | — |
 | The rest of the reference desktop (wallpaper, menu bar + fullscreen, boot splash, desktop icon grid, Settings background chooser) | todo | `apps/shell` | — | — |
@@ -23,8 +22,10 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 
 - **Counter modal** — real DOM inside `<canvas>`, one `drawElementImage`, click → increment → repaint. Attribute names, the paint event / `requestPaint`. Installs React + shadcn/ui (Base UI): Dialog, Button.
 - **Draw it elsewhere** — clicks land in the wrong place: who owns the element's position (drawn rect vs DOM rect).
-- **Drag it** — position changes every frame: how repaint is driven (paint event vs a frame loop).
-- **Window** — the reference desktop's `apps-window` chrome and CSS variables.
+- **Window with a draggable header** — position changes every frame: how repaint is driven (paint
+  event vs a frame loop). And who owns a window: the desktop provides the chrome, the app fills a
+  content slot, so apps can never make things draggable. Ports the reference desktop's `apps-window`
+  chrome and CSS variables.
 - **Second window** — first time a list of nodes ("document") earns its place, because two things need ordering.
 - **Dock** — the reference's apps; one window at a time (as the reference does) vs many is decided here.
 - **Rest of the reference desktop** — the shell is complete as a port.
@@ -64,3 +65,5 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-18 | Counter modal drawn through the canvas (React + shadcn/Base UI + Tailwind installed). Chrome fires `paint` by itself on child changes; React needs `layoutsubtree=""` not `{true}`; Base UI needs a Portal with `container` |
 | 2026-09-18 | ADR 002: React renders content directly inside the canvas; portals target the drawable mount |
 | 2026-09-18 | Modal drawn at a position: Chrome 153 keeps hit-testing the mount at (0, 0); the engine writes the returned DOMMatrix to the element's transform (Chrome's documented idiom). `drawElementImage` takes backing-store coordinates, so no `ctx.scale(dpr)`. ADR 003: the engine is a library (`packages/engine`), the desktop a React app that plugs it in |
+| 2026-09-18 | Modal dragged by its header: the engine owns the gesture (`item.addDragHandle`) and the position; repaint stays driven by Chrome's `paint` event with a dirty flag, no frame loop — Chrome coalesces pointer moves to about one per frame by itself. A ref object never reaches a portalled handle; the binding hands out a callback ref |
+| 2026-09-18 | The modal became a window: chrome (header, close, the reference's `apps-window` look) belongs to the desktop's `Window` component, apps get a content slot, and the Base UI Dialog is gone. Header layout is macOS-style — controls top left, app's area with the title to the right of them, every empty pixel drags. The engine ignores presses on interactive elements, so the close button works inside the handle. ADR 004 |
