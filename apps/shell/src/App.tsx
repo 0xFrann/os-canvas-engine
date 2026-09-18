@@ -1,3 +1,5 @@
+import { CanvasSurface } from "./CanvasSurface";
+import { CounterModal } from "./CounterModal";
 import { UnsupportedBrowser } from "./UnsupportedBrowser";
 import { detectHtmlInCanvasSupport } from "./detectHtmlInCanvasSupport";
 import { useState } from "react";
@@ -10,9 +12,8 @@ export function App() {
   }
 
   return (
-    <main className="ready">
-      <h1>HTML-in-Canvas supported ✅</h1>
-      <p>The desktop shell lands one visible feature at a time — see docs/roadmap.md.</p>
-    </main>
+    <CanvasSurface>
+      <CounterModal />
+    </CanvasSurface>
   );
 }

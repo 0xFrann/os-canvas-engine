@@ -33,7 +33,7 @@ The engine code is the "how does this work" story — it should stay minimal and
 
 **Harder now**
 
-- Whoever draws an element through `drawElementImage` and whoever renders React into it are two owners of the same DOM node. Where that boundary sits is decided when the first drawn element exists (roadmap rung 1), not here.
+- Whoever draws an element through `drawElementImage` and whoever renders React into it are two owners of the same DOM node. Where that boundary sits is decided when the first drawn element exists (the counter modal feature), not here.
 - Two dependency stacks in one repo (vanilla TS engine code + a React/Tailwind app) — acceptable as long as the boundary is a whole package vs. a whole app, not mixed within one package.
 
 ## References

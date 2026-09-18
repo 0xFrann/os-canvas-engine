@@ -13,14 +13,14 @@ don't understand and do not know what it does and what can we do later. [...] An
 complex logic without use is worthless."
 
 So the tree is back to the CI commit (`cd988f0`: capability gate, Pages deploy, tooling) and the
-[roadmap](../roadmap.md) is now a ladder of user-visible features. Each rung is designed only as
+[roadmap](../roadmap.md) is now a list of user-visible features. Each feature is designed only as
 far as it needs, built, and looked at in Chrome Canary before the next one starts. Packages under
-`packages/` appear when a rung makes a boundary obvious, not before.
+`packages/` appear when a feature makes a boundary obvious, not before.
 
 ## What the first attempt learned about the browser
 
 Worth keeping so the same walls aren't hit blind. Each of these will still be *shown* on screen at
-rungs 1–2 of the ladder — this is what to expect, not a substitute for seeing it.
+the first features of the roadmap — this is what to expect, not a substitute for seeing it.
 
 - **Attribute names are mid-rename.** The WICG explainer and Chromium main use `content="drawable"`
   on the canvas. Shipped Chrome (tested on Chrome for Testing 153 with

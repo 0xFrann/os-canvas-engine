@@ -7,6 +7,7 @@
  *   pnpm screenshot                       # http://localhost:5173 → screenshot.png
  *   URL=http://localhost:5174 OUT=x.png pnpm screenshot
  *   CHROME="/path/to/Chrome" pnpm screenshot
+ *   CLICK="button" pnpm screenshot        # click the first match (center of its DOM rect) before shooting
  *
  * Also prints console output from the page and a summary of the canvas's
  * drawable mounts, which is usually enough to tell *why* a screenshot is blank.
@@ -21,6 +22,7 @@ const out = process.env.OUT ?? "screenshot.png";
 const waitMs = Number(process.env.WAIT_MS ?? 3000);
 const port = Number(process.env.CDP_PORT ?? 9333);
 const [width, height] = (process.env.SIZE ?? "1280x800").split("x").map(Number);
+const click = process.env.CLICK;
 
 function findChrome() {
   if (process.env.CHROME) {
@@ -147,6 +149,37 @@ try {
   );
   await send("Page.navigate", { url }, sessionId);
   await new Promise((r) => setTimeout(r, waitMs));
+
+  if (click) {
+    const { result: rect } = await send(
+      "Runtime.evaluate",
+      {
+        expression: `(() => {
+          const el = document.querySelector(${JSON.stringify(click)});
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        })()`,
+        returnByValue: true,
+      },
+      sessionId,
+    );
+    if (!rect.value) {
+      throw new Error(`CLICK: nothing matches ${click}`);
+    }
+    // Sequential on purpose: press must land before release.
+    /* oxlint-disable no-await-in-loop */
+    for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
+      await send(
+        "Input.dispatchMouseEvent",
+        { button: "left", clickCount: 1, type, ...rect.value },
+        sessionId,
+      );
+    }
+    /* oxlint-enable no-await-in-loop */
+    console.log(`clicked ${click} at ${Math.round(rect.value.x)},${Math.round(rect.value.y)}`);
+    await new Promise((r) => setTimeout(r, 500));
+  }
 
   const { result } = await send(
     "Runtime.evaluate",
