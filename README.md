@@ -36,3 +36,4 @@ Each roadmap step is its own feature branch and PR against `main`. Architecture 
 - `pnpm test` — unit tests across packages
 - `pnpm typecheck` — TypeScript across packages + app
 - `pnpm lint` / `pnpm format`
+- `pnpm screenshot` — loads the running dev server in a headless Chrome with the HTML-in-Canvas flag and saves `screenshot.png` (see `scripts/screenshot.mjs` for `CHROME` / `URL` overrides)

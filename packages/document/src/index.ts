@@ -141,7 +141,33 @@ class DocumentModel implements Document {
   }
 }
 
-export { DocumentModel };
+function anchorRank(anchor: Node["anchor"]): number {
+  if (anchor === "screen") {
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * Bottom-to-top paint order shared by the renderer (draw order) and
+ * hit-testing (pick order), so what's drawn on top is what gets picked:
+ * screen-anchored nodes (the taskbar) always sit above world-anchored ones
+ * (windows), and within the same anchor a higher zIndex is on top.
+ */
+function comparePaintOrder(a: Node, b: Node): number {
+  const rankDiff = anchorRank(a.anchor) - anchorRank(b.anchor);
+  if (rankDiff !== 0) {
+    return rankDiff;
+  }
+  return a.zIndex - b.zIndex;
+}
+
+/** The document's nodes as a new array sorted bottom-to-top. */
+function paintOrder(doc: Document): Node[] {
+  return [...doc.nodes.values()].toSorted(comparePaintOrder);
+}
+
+export { DocumentModel, comparePaintOrder, paintOrder };
 export {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,

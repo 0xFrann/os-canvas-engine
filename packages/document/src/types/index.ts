@@ -9,7 +9,12 @@ const DEFAULT_NODE_HEIGHT = 320;
  */
 type NodeAnchor = "world" | "screen";
 
-type ContentKind = "clock" | "notes" | "about" | "taskbar";
+/**
+ * Which app a window hosts. The app list mirrors the reference desktop
+ * (desktop-os-react-next `APPS_DATA`): Example and Settings from the dock,
+ * Example Two from the desktop grid. `taskbar` is the one non-window kind.
+ */
+type ContentKind = "example" | "exampletwo" | "settings" | "taskbar";
 
 type WindowState = "normal" | "minimized" | "maximized";
 

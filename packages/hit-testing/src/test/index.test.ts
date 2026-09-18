@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DocumentModel } from "@os-canvas/document";
 import { createCamera } from "@os-canvas/camera";
 
-const win = { anchor: "world" as const, contentKind: "notes" as const };
+const win = { anchor: "world" as const, contentKind: "example" as const };
 const bar = { anchor: "screen" as const, contentKind: "taskbar" as const };
 
 describe("containsPoint", () => {

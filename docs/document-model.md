@@ -27,6 +27,13 @@ the base project's tree/reparent/dirty-sync shape.
   active node), `deleteNode`, `save`/`DocumentModel.load` (flat array of plain `Node` objects —
   `Node` and the serialized shape are now identical, so there's no separate `SerializedNode`
   type).
+- **`contentKind`:** `"example" | "exampletwo" | "settings" | "taskbar"` — the reference desktop's
+  app list (`desktop-os-react-next` `APPS_DATA`) plus the one non-window kind. Earlier values
+  (`clock`, `notes`, `about`) were placeholders that matched nothing in the reference and were
+  removed in the renderer PR.
+- **`paintOrder(doc)` / `comparePaintOrder`:** bottom-to-top order (world nodes by `zIndex`,
+  then screen nodes by `zIndex`). Lives here rather than in the renderer because both
+  `@os-canvas/renderer` and `@os-canvas/hit-testing` must agree on it — see [ADR 004](./decisions/004-renderer-owns-mounts-host-owns-content.md).
 - **Ids:** `crypto.randomUUID()` on `addNode`; file load preserves stored ids and rejects
   duplicates.
 - **`title` is set on creation only** — not currently patchable (no rename-window feature yet).
