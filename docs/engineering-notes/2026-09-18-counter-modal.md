@@ -1,6 +1,6 @@
 # 2026-09-18 — Counter modal: three things the browser (and React) told us
 
-Rung 1 of the ladder ([feature note](../features/01-counter-modal.md)) — a shadcn Dialog with a
+The counter modal ([feature note](../features/counter-modal.md)) — a shadcn Dialog with a
 "+1" button drawn through the canvas — took three tries to show up, and each failure was worth
 more than the design.
 

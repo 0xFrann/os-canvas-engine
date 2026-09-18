@@ -1,6 +1,6 @@
 # 01 — A modal with a counter button, drawn through the canvas
 
-Roadmap rung 1. Branch `feat/01-counter-modal`.
+Branch `feat/01-counter-modal`.
 
 ## Need
 
@@ -9,7 +9,7 @@ click "+1" and the number on the canvas changes. Text stays selectable and the b
 keyboard-focusable — that's the whole point of HTML-in-Canvas over painting pixels.
 
 It's first because it is the smallest proof that the API works in shipped Chrome, and because
-the draw loop it produces is what every later rung (moving, dragging, windows) reuses.
+the draw loop it produces is what every later feature (moving, dragging, windows) reuses.
 
 ## Design
 
@@ -27,13 +27,13 @@ with no Portal at all; Base UI 1.8 throws `<Dialog.Portal> is missing`, so it's 
   shows up is through the canvas.
 - **The modal.** shadcn Dialog (Base UI) with `open`, `modal={false}`, a Portal whose
   `container` is the mount, no Backdrop. Title "Counter", the count, one Button "+1". No close
-  button — there is nothing to close to yet; rung 4 brings the window chrome.
+  button — there is nothing to close to yet; the window feature brings the chrome.
 - **The draw.** One `draw()` in `CanvasSurface`: size the backing store to CSS size × device
   pixel ratio, clear, `drawElementImage(mount, 0, 0)`. It runs on the canvas `paint` event. The
   surface calls `requestPaint()` once after mount and on resize. Whether the counter also has to
   request a paint when its state changes, or the paint event fires by itself when the child
   re-renders, was found out on screen (see below): it fires by itself, so nothing else asks.
-- **Setup landing in this rung.** Tailwind v4 via the Vite plugin, shadcn init with Base UI,
+- **Setup landing with this feature.** Tailwind v4 via the Vite plugin, shadcn init with Base UI,
   `button` and `dialog`, the `@/` alias. The capability gate stays; its "supported" screen is
   replaced by the canvas.
 - **Files.** `apps/shell/src/CounterModal.tsx` (dialog content), `apps/shell/src/CanvasSurface.tsx`
@@ -45,7 +45,7 @@ Chrome for Testing 153 (`--enable-blink-features=CanvasDrawElement`), 1280×800,
 
 | Loaded | After `CLICK=button pnpm screenshot` |
 |---|---|
-| ![counter modal at 0](./assets/01-counter-modal.png) | ![counter modal at 1](./assets/01-counter-modal-clicked.png) |
+| ![counter modal at 0](./assets/counter-modal.png) | ![counter modal at 1](./assets/counter-modal-clicked.png) |
 
 - The probe reports `layoutsubtree: true`, `content: "drawable"`, and one drawable mount, 384×177,
   text `Counter0+1`. The page paints nothing else: the modal is only visible through the canvas.
@@ -63,6 +63,6 @@ Chrome for Testing 153 (`--enable-blink-features=CanvasDrawElement`), 1280×800,
 - **The snapshot includes ink outside the element's box.** With the popup at (0, 0) its 1px ring
   looked cut off on the top and left: that pixel sits at -1 and falls off the canvas. Padding on
   the mount (`p-6`) fixes it, and a `shadow-lg` added to check renders fully too — the snapshot is
-  not clipped to the border box, only to the mount. Good news for window chrome at rung 4.
+  not clipped to the border box, only to the mount. Good news for window chrome later.
 - **Fallback.** Along the way the unsupported-browser screen became a small card in the same
-  style: ![unsupported](./assets/01-unsupported.png)
+  style: ![unsupported](./assets/unsupported.png)
