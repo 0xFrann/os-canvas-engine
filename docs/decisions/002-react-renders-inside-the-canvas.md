@@ -70,7 +70,7 @@ child's rendering changes (verified: a state change inside the modal repainted w
 changes position every frame; if the paint event isn't enough there, that's where a frame loop
 gets designed.
 
-**Revisit trigger:** a second drawable element (the second-window feature), when "one mount" stops
+**Revisit trigger:** a second drawable element (the multiple-windows feature), when "one mount" stops
 being true and the surface has to manage several.
 
 ## References

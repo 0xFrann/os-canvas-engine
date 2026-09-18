@@ -3,11 +3,13 @@ import {
   createContext,
   useContext,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type ComponentProps,
   type ReactNode,
+  type Ref,
   type RefCallback,
   type RefObject,
 } from "react";
@@ -63,10 +65,20 @@ export function useDragHandle<T extends HTMLElement = HTMLElement>(): RefCallbac
   return setHandle;
 }
 
-export type DrawableProps = Omit<ComponentProps<"div">, "children"> & {
+export type DrawableProps = Omit<ComponentProps<"div">, "children" | "ref"> & {
   children?: ReactNode;
   /** Where the engine first draws this element, in CSS pixels of the canvas. */
   initialPosition: Position;
+  /**
+   * Receives the engine's item for this drawable once it is registered, and `null` when it goes
+   * away. It is the **item, not the `<div>`** — the element is `useDrawableMount()` — the same way
+   * a canvas library hands back its own node rather than a DOM one.
+   *
+   * It is how the host reaches a drawable that the user did not press: the dock raising an app it
+   * already opened calls `item.raise()`. It does not make position or order the host's: the item's
+   * methods stay the engine's, and nothing here should read `item.position` into state.
+   */
+  ref?: Ref<DrawableItem | null>;
 };
 
 /**
@@ -74,7 +86,7 @@ export type DrawableProps = Omit<ComponentProps<"div">, "children"> & {
  * it's drawn and where it's hit-tested — dragging it does not re-render anything here — so never
  * keep its position in state and never set a `transform` on it yourself.
  */
-export function Drawable({ children, initialPosition, ...divProps }: DrawableProps) {
+export function Drawable({ children, initialPosition, ref, ...divProps }: DrawableProps) {
   const engine = useEngine();
   const mountRef = useRef<HTMLDivElement>(null);
   const [item, setItem] = useState<DrawableItem | null>(null);
@@ -92,6 +104,8 @@ export function Drawable({ children, initialPosition, ...divProps }: DrawablePro
     };
     // The position is read once, on registration: it's the engine's from there on.
   }, [engine]);
+
+  useImperativeHandle<DrawableItem | null, DrawableItem | null>(ref, () => item, [item]);
 
   const context = useMemo(() => ({ item, mountRef }), [item]);
 

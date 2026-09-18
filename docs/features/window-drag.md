@@ -121,7 +121,7 @@ half is minimize, which doesn't exist here yet).
   `apps/shell/src/index.css` (the ported variables), `App.tsx`,
   `scripts/screenshot.mjs` (a `DRAG` option and paint-event counters).
 
-Not here: z-order, a second window, minimize, zoom, resize, or a window manager. `onClose` is a prop
+Not here: z-order, more than one window, minimize, zoom, resize, or a window manager. `onClose` is a prop
 the desktop doesn't pass yet — there is nowhere to close into until the dock can reopen an app.
 Bounds, too: the window may be dragged off the edge, and nothing clamps it yet.
 

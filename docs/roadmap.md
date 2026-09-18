@@ -11,9 +11,9 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 | A modal with a counter button, drawn through the canvas | done | `apps/shell` | [feature note](./features/counter-modal.md), [engineering note](./engineering-notes/2026-09-18-counter-modal.md) |[002](./decisions/002-react-renders-inside-the-canvas.md) |
 | Draw the modal somewhere other than (0, 0) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/modal-position.md) | [003](./decisions/003-engine-is-a-library-plugged-into-react.md) |
 | A window with a draggable header (the reference desktop's window chrome) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/window-drag.md), [engineering note](./engineering-notes/2026-09-18-drag-repaint.md) | [004](./decisions/004-window-chrome-belongs-to-the-desktop.md) |
-| A second window (overlap, click-to-raise, z-order) | todo | `apps/shell` | — | — |
-| Open and close apps from a dock (Example, Settings, Example Two) | todo | `apps/shell` | — | — |
-| The rest of the reference desktop (wallpaper, menu bar + fullscreen, boot splash, desktop icon grid, Settings background chooser) | todo | `apps/shell` | — | — |
+| Multiple windows, opened from a dock (overlap, click-to-raise, close) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/multiple-windows.md), [engineering note](./engineering-notes/2026-09-18-overlap-hit-order.md) | [005](./decisions/005-draw-order-lives-in-the-engine.md), [006](./decisions/006-the-dock-is-chrome-over-the-canvas.md) |
+| Keyboard focus follows the active window (Tab stays inside the front window) — to be discussed, see the [finding](./features/multiple-windows.md#found-on-screen-to-be-discussed) | todo | `packages/engine`, `apps/shell` | — | — |
+| The rest of the reference desktop (wallpaper, menu bar + fullscreen, boot splash, desktop icon grid, Settings' background chooser, Example Two) | todo | `apps/shell` | — | — |
 | Beyond the reference: what canvas makes possible (pan/zoom the desktop, …) | todo | — | — | — |
 
 Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-canvas-engine/) (deploys from `main` on every push).
@@ -26,8 +26,13 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
   event vs a frame loop). And who owns a window: the desktop provides the chrome, the app fills a
   content slot, so apps can never make things draggable. Ports the reference desktop's `apps-window`
   chrome and CSS variables.
-- **Second window** — first time a list of nodes ("document") earns its place, because two things need ordering.
-- **Dock** — the reference's apps; one window at a time (as the reference does) vs many is decided here.
+- **Multiple windows from a dock** — two questions at once. Ordering: two overlapping windows need
+  an ordered list of drawn items inside the engine, and *only* that — a named "document" object
+  waits for a consumer outside the render loop (a menu bar showing the active app, minimize, a
+  camera). Ownership: a dock means the desktop no longer knows in advance what it is holding, so
+  which windows exist becomes React state while positions and order stay the engine's. Decided
+  here: many windows at once, where the reference shows one; and the dock is chrome laid over the
+  canvas, not something the engine draws.
 - **Rest of the reference desktop** — the shell is complete as a port.
 - **Beyond the reference** — picked and designed when we get there, not now.
 
@@ -48,7 +53,9 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
   Anything else is extracted when a feature needs it, not before.
 - **No invented content.** What the shell shows comes from the reference desktop
   ([desktop-os-react-next](https://github.com/0xFrann/desktop-os-react-next)) or from an explicit
-  decision. The counter modal is such a decision.
+  decision. The counter modal is such a decision. The reference is the source of truth for *what
+  exists and how it behaves*, not for *how it looks*: the look is this project's own, built from
+  Tailwind, shadcn/Base UI and lucide.
 - **Docs:** ADRs in [`decisions/`](./decisions/) for real forks; dated learnings in
   [`engineering-notes/`](./engineering-notes/).
 
@@ -67,3 +74,5 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-18 | Modal drawn at a position: Chrome 153 keeps hit-testing the mount at (0, 0); the engine writes the returned DOMMatrix to the element's transform (Chrome's documented idiom). `drawElementImage` takes backing-store coordinates, so no `ctx.scale(dpr)`. ADR 003: the engine is a library (`packages/engine`), the desktop a React app that plugs it in |
 | 2026-09-18 | Modal dragged by its header: the engine owns the gesture (`item.addDragHandle`) and the position; repaint stays driven by Chrome's `paint` event with a dirty flag, no frame loop — Chrome coalesces pointer moves to about one per frame by itself. A ref object never reaches a portalled handle; the binding hands out a callback ref |
 | 2026-09-18 | The modal became a window: chrome (header, close, the reference's `apps-window` look) belongs to the desktop's `Window` component, apps get a content slot, and the Base UI Dialog is gone. Header layout is macOS-style — controls top left, app's area with the title to the right of them, every empty pixel drags. The engine ignores presses on interactive elements, so the close button works inside the handle. ADR 004 |
+| 2026-09-18 | Two overlapping windows: the engine's items became an ordered list drawn back to front, with `item.raise()` and a raise on `pointerdown`. Draw order does not reach hit-testing: the mounts are static siblings, so Chrome hit-tests them in DOM order and the engine has to write `z-index` (plus `position: relative`) alongside the transform. Two windows cost the same paints as one; idle stays at 0. ADR 005. The second window's content is the reference's Example app, ported as it is |
+| 2026-09-18 | A dock opens them, and the feature became *multiple windows*: which windows exist is React state in the desktop, positions and draw order stay in the engine, and the only new binding is `<Drawable ref>` handing back the `DrawableItem` so the dock can `raise()` a window nobody is pointing at. `packages/engine` unchanged. The close button is finally wired. ADR 006: the dock is chrome laid over the canvas, not a drawable — hovering it costs the canvas 0 paints. The reference desktop is the source of truth for what exists and how it behaves, not for how it looks: the dock's look is this project's own (Tailwind, shadcn/Base UI tooltip, lucide icons), after a first pass that ported its SCSS was thrown away |
