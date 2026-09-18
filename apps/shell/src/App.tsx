@@ -1,8 +1,11 @@
-import { CanvasSurface } from "./CanvasSurface";
-import { CounterModal } from "./CounterModal";
+import { CanvasSurface, Drawable } from "@os-canvas/react";
+import { CounterModal } from "@apps/CounterModal";
 import { UnsupportedBrowser } from "./UnsupportedBrowser";
 import { detectHtmlInCanvasSupport } from "./detectHtmlInCanvasSupport";
 import { useState } from "react";
+
+// Anywhere but the corner: the point is that the drawn rect and the DOM rect no longer coincide.
+const MODAL_POSITION = { x: 240, y: 160 };
 
 export function App() {
   const [supported] = useState(detectHtmlInCanvasSupport);
@@ -12,8 +15,10 @@ export function App() {
   }
 
   return (
-    <CanvasSurface>
-      <CounterModal />
+    <CanvasSurface className="surface bg-muted" aria-label="Desktop">
+      <Drawable position={MODAL_POSITION} className="w-max p-6">
+        <CounterModal />
+      </Drawable>
     </CanvasSurface>
   );
 }

@@ -4,6 +4,11 @@
 
 declare global {
   interface CanvasRenderingContext2D {
+    /**
+     * Draws a snapshot of a `drawable` canvas descendant at (dx, dy). Chrome 153 returns the
+     * DOMMatrix that maps the element's border box to the drawn location; newer builds return
+     * `undefined` and sync hit-testing themselves (WICG/html-in-canvas#174).
+     */
     drawElementImage(element: Element, dx: number, dy: number): DOMMatrix | undefined;
     drawElementImage(
       element: Element,
@@ -25,18 +30,5 @@ declare global {
   }
 }
 
-declare module "react" {
-  interface CanvasHTMLAttributes<T> extends HTMLAttributes<T> {
-    /** Shipped Chrome: marks the canvas children as laid out + drawable. Pass "" — React drops `true` on unknown attributes. */
-    layoutsubtree?: string;
-    /** Chromium main: `content="drawable"` replaces `layoutsubtree`. */
-    content?: string;
-  }
-  interface HTMLAttributes<T> extends AriaAttributes, DOMAttributes<T> {
-    /** Marks a canvas child as something `drawElementImage` may draw. Pass "" — React drops `true` on unknown attributes. */
-    drawable?: string;
-  }
-}
-
-// oxlint-disable-next-line unicorn/require-module-specifiers -- makes this a module so `declare module "react"` augments instead of replacing
+// oxlint-disable-next-line unicorn/require-module-specifiers -- makes this file a module so `declare global` augments
 export {};

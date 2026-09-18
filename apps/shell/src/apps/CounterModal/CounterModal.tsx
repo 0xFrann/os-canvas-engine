@@ -1,17 +1,16 @@
-import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button, Dialog, DialogFooter, DialogHeader, DialogTitle } from "@ui";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { useCanvasSurface } from "./CanvasSurface";
+import { useDrawableMount } from "@os-canvas/react";
 
 /**
- * A real (Base UI) dialog that stays a child of the canvas: its Portal targets the canvas's
- * drawable mount instead of <body> (Base UI 1.8 insists on a Portal), no Backdrop, and
- * `modal={false}` so nothing traps focus or locks scroll.
+ * A real (Base UI) dialog that stays inside its drawn element: its Portal targets the Drawable's
+ * mount instead of <body> (Base UI 1.8 insists on a Portal), no Backdrop, and `modal={false}` so
+ * nothing traps focus or locks scroll.
  */
 export function CounterModal() {
   const [count, setCount] = useState(0);
-  const { mountRef } = useCanvasSurface();
+  const mountRef = useDrawableMount();
 
   return (
     <Dialog open modal={false}>

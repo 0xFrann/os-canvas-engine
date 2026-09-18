@@ -9,7 +9,7 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 |---------|--------|------|------|-----|
 | Repo scaffold, capability gate, GitHub Pages deploy | done | `apps/shell`, `.github/workflows/deploy-pages.yml` | [capability gate](./engineering-notes/2026-09-17-capability-gate.md), [pages](./engineering-notes/2026-09-17-github-pages.md) | [001](./decisions/001-shell-app-react-shadcn-base-ui.md) |
 | A modal with a counter button, drawn through the canvas | done | `apps/shell` | [feature note](./features/counter-modal.md), [engineering note](./engineering-notes/2026-09-18-counter-modal.md) |[002](./decisions/002-react-renders-inside-the-canvas.md) |
-| Draw the modal somewhere other than (0, 0) | todo | `apps/shell` | — | — |
+| Draw the modal somewhere other than (0, 0) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/modal-position.md) | [003](./decisions/003-engine-is-a-library-plugged-into-react.md) |
 | Drag the modal by its header | todo | `apps/shell` | — | — |
 | Make it a window (title, close, the reference desktop's window chrome) | todo | `apps/shell` | — | — |
 | A second window (overlap, click-to-raise, z-order) | todo | `apps/shell` | — | — |
@@ -39,9 +39,12 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
   `chrome://flags/#canvas-draw-element` on. The PR carries a screenshot (`pnpm screenshot`) and the
   feature note's **On screen** section says what was checked. Unit tests are welcome for pure
   logic, but never stand in for the browser here — no test shim implements this API.
-- **Abstractions are extracted, not pre-built.** Everything lives in `apps/shell/src` until a
-  feature has two consumers for the same code, or the engine needs to be separable at that point.
-  Only then does a package under `packages/` appear.
+- **The engine is a library, the desktop is a React app.** `packages/engine` (`@os-canvas/engine`)
+  is plain TypeScript with an imperative API and no React; `packages/react` (`@os-canvas/react`)
+  is the thin binding; `apps/shell` is the desktop, which initializes the engine and renders
+  everything on screen, with React apps under `apps/shell/src/apps/<Name>/`
+  ([ADR 003](./decisions/003-engine-is-a-library-plugged-into-react.md)).
+  Anything else is extracted when a feature needs it, not before.
 - **No invented content.** What the shell shows comes from the reference desktop
   ([desktop-os-react-next](https://github.com/0xFrann/desktop-os-react-next)) or from an explicit
   decision. The counter modal is such a decision.
@@ -60,3 +63,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-18 | Reset to the CI commit. Roadmap rewritten around features; packages removed; browser lessons kept in an [engineering note](./engineering-notes/2026-09-18-reset-to-feature-roadmap.md); `pnpm screenshot` kept |
 | 2026-09-18 | Counter modal drawn through the canvas (React + shadcn/Base UI + Tailwind installed). Chrome fires `paint` by itself on child changes; React needs `layoutsubtree=""` not `{true}`; Base UI needs a Portal with `container` |
 | 2026-09-18 | ADR 002: React renders content directly inside the canvas; portals target the drawable mount |
+| 2026-09-18 | Modal drawn at a position: Chrome 153 keeps hit-testing the mount at (0, 0); the engine writes the returned DOMMatrix to the element's transform (Chrome's documented idiom). `drawElementImage` takes backing-store coordinates, so no `ctx.scale(dpr)`. ADR 003: the engine is a library (`packages/engine`), the desktop a React app that plugs it in |

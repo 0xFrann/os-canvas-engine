@@ -8,6 +8,8 @@
  *   URL=http://localhost:5174 OUT=x.png pnpm screenshot
  *   CHROME="/path/to/Chrome" pnpm screenshot
  *   CLICK="button" pnpm screenshot        # click the first match (center of its DOM rect) before shooting
+ *   CLICK_AT="300,200" pnpm screenshot    # click at page coordinates instead (where something is *drawn*)
+ *   DPR=2 pnpm screenshot                 # emulate a 2x display
  *
  * Also prints console output from the page and a summary of the canvas's
  * drawable mounts, which is usually enough to tell *why* a screenshot is blank.
@@ -23,6 +25,8 @@ const waitMs = Number(process.env.WAIT_MS ?? 3000);
 const port = Number(process.env.CDP_PORT ?? 9333);
 const [width, height] = (process.env.SIZE ?? "1280x800").split("x").map(Number);
 const click = process.env.CLICK;
+const dpr = Number(process.env.DPR ?? 1);
+const clickAt = process.env.CLICK_AT?.split(",").map(Number);
 
 function findChrome() {
   if (process.env.CHROME) {
@@ -144,27 +148,35 @@ try {
   await send("Log.enable", {}, sessionId);
   await send(
     "Emulation.setDeviceMetricsOverride",
-    { deviceScaleFactor: 1, height, mobile: false, width },
+    { deviceScaleFactor: dpr, height, mobile: false, width },
     sessionId,
   );
   await send("Page.navigate", { url }, sessionId);
   await new Promise((r) => setTimeout(r, waitMs));
 
-  if (click) {
-    const { result: rect } = await send(
-      "Runtime.evaluate",
-      {
-        expression: `(() => {
+  if (click || clickAt) {
+    let target = click;
+    let point = null;
+    if (clickAt) {
+      target = `(${clickAt.join(", ")})`;
+      point = { x: clickAt[0], y: clickAt[1] };
+    } else {
+      const { result } = await send(
+        "Runtime.evaluate",
+        {
+          expression: `(() => {
           const el = document.querySelector(${JSON.stringify(click)});
           if (!el) return null;
           const r = el.getBoundingClientRect();
           return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
         })()`,
-        returnByValue: true,
-      },
-      sessionId,
-    );
-    if (!rect.value) {
+          returnByValue: true,
+        },
+        sessionId,
+      );
+      point = result.value;
+    }
+    if (!point) {
       throw new Error(`CLICK: nothing matches ${click}`);
     }
     // Sequential on purpose: press must land before release.
@@ -172,12 +184,12 @@ try {
     for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
       await send(
         "Input.dispatchMouseEvent",
-        { button: "left", clickCount: 1, type, ...rect.value },
+        { button: "left", clickCount: 1, type, ...point },
         sessionId,
       );
     }
     /* oxlint-enable no-await-in-loop */
-    console.log(`clicked ${click} at ${Math.round(rect.value.x)},${Math.round(rect.value.y)}`);
+    console.log(`clicked ${target} at ${Math.round(point.x)},${Math.round(point.y)}`);
     await new Promise((r) => setTimeout(r, 500));
   }
 
@@ -190,9 +202,13 @@ try {
         return {
           supported: "drawElementImage" in CanvasRenderingContext2D.prototype,
           canvas: { width: canvas.width, height: canvas.height, content: canvas.getAttribute("content"), layoutsubtree: canvas.hasAttribute("layoutsubtree") },
-          mounts: [...canvas.querySelectorAll("[drawable]")].map((el) => ({
-            id: el.dataset.nodeId, layout: el.offsetWidth + "x" + el.offsetHeight, inert: el.inert, text: el.textContent.slice(0, 40),
-          })),
+          elementApi: Object.getOwnPropertyNames(CanvasRenderingContext2D.prototype).filter((n) => /element/i.test(n)),
+          mounts: [...canvas.querySelectorAll("[drawable]")].map((el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              domRect: [r.x, r.y, r.width, r.height].map(Math.round).join(" "), inert: el.inert, text: el.textContent.slice(0, 40),
+            };
+          }),
         };
       })()`,
       returnByValue: true,
