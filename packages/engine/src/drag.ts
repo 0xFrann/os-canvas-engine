@@ -7,8 +7,15 @@ export interface DragTarget {
 }
 
 /**
+ * Controls a press must reach instead of starting a drag. A window header is a handle with things
+ * in it — a close button today, a toolbar later — and those have to keep working.
+ */
+const INTERACTIVE_TARGETS = "button, a, input, textarea, select, [contenteditable]";
+
+/**
  * Makes `handle` drag `target`: a primary-button press on the handle starts a gesture that moves
- * the target by the pointer's delta, until the pointer is released or cancelled.
+ * the target by the pointer's delta, until the pointer is released or cancelled. A press that lands
+ * on an interactive element inside the handle is left alone.
  *
  * The handle is any DOM element, usually a header inside the drawn content itself — the content is
  * real DOM and the engine keeps its DOM rect on top of its drawn rect, so the browser does the
@@ -28,6 +35,9 @@ export function attachDragHandle(handle: HTMLElement, target: DragTarget): () =>
 
   const onPointerDown = (event: PointerEvent) => {
     if (endGesture || !event.isPrimary || event.button !== 0) {
+      return;
+    }
+    if (event.target instanceof Element && event.target.closest(INTERACTIVE_TARGETS)) {
       return;
     }
     // Stops the press from starting a text selection or a native drag of the content.

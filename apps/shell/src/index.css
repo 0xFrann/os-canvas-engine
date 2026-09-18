@@ -40,6 +40,16 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /*
+   * Window chrome, ported as-is from the reference desktop (desktop-os-react-next):
+   * global.scss's --windowBackground / --windowGrey / --borderColor / --bodyColor and
+   * apps-window.scss's --windowBorderRadius. The desktop draws every window with these.
+   */
+  --window: #f5f5f5;
+  --window-header: #e7e7e7;
+  --window-border: #a6a6a6;
+  --window-foreground: #686868;
+  --window-radius: 0.75rem;
 }
 
 body {
@@ -61,6 +71,11 @@ code {
 }
 
 @theme inline {
+  --color-window: var(--window);
+  --color-window-header: var(--window-header);
+  --color-window-border: var(--window-border);
+  --color-window-foreground: var(--window-foreground);
+  --radius-window: var(--window-radius);
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);

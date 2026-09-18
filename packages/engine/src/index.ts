@@ -21,7 +21,8 @@ export interface DrawableItem {
   moveTo(position: Position): void;
   /**
    * Makes `handle` drag this item: pressing it and moving the pointer moves the item by the same
-   * delta. The handle is usually part of the drawn content (a window header).
+   * delta. The handle is usually part of the drawn content (a window header, edge to edge); a press
+   * on a control inside it (button, link, field) reaches the control instead of dragging.
    *
    * @returns a function that ends any gesture in flight and detaches the handle.
    */

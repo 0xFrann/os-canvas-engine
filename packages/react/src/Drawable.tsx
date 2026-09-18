@@ -38,9 +38,12 @@ export function useDrawableMount() {
 }
 
 /**
- * A ref for the element that drags the drawable it's in — a window header, typically:
- * `<DialogHeader ref={useDragHandle()}>`. The engine owns the gesture and the position; this hook
- * only hands it the element, so no coordinate ever reaches React.
+ * A ref for the element that drags the drawable it's in: `<div ref={useDragHandle()}>`.
+ *
+ * **For window chrome only.** Whoever provides the window decides what drags it — in this repo that
+ * is the desktop's `Window` component, the hook's only caller. An app rendered inside a window never
+ * calls it (see ADR 004). The engine owns the gesture and the position; this hook only hands it the
+ * element, so no coordinate ever reaches React.
  *
  * It's a callback ref on purpose: the handle can appear in a later commit than the one that
  * registered the drawable (a portalled dialog popup does), and a ref object filled after the fact

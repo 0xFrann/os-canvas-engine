@@ -1,6 +1,6 @@
 # 2026-09-18 — What drives repaint during a drag
 
-Dragging the modal ([feature note](../features/modal-drag.md)) was the first thing that changes a
+Dragging the modal ([feature note](../features/window-drag.md)) was the first thing that changes a
 position many times a second, so it was the first honest test of who runs the frame loop. Three
 things came out of it, measured with the `paint`-event counters `pnpm screenshot` now prints.
 
@@ -13,6 +13,18 @@ the position at paint time. So the engine needs no `requestAnimationFrame` loop;
 dirty, asks for one paint, and the `paint` handler clears the mark as it draws. Every
 `requestPaint()` was followed by a `paint` event at every pacing tried, which is what makes that
 dirty flag safe — if one ever weren't, the flag would stay set and the drag would freeze.
+
+Re-measured once the modal became a [window](../features/window-drag.md): the paced drag still gives
+25 moves and 25 paints, and dropping the pacing to 0 ms gives 61 moves and 61 paints in ~1.3 s,
+about 46/s. The screenshot script yields to the event loop between moves, so Chrome has every chance
+to deliver each one; coalescing shows up when they really arrive inside one frame, and the dirty flag
+is what makes that case cost one paint instead of several. Either way the window lands on the exact
+pixel, because the engine reads the position at paint time.
+
+Windows brought one more rule for the gesture: the handle is the whole header strip, so it contains
+controls. A `pointerdown` whose target is inside a `button, a, input, textarea, select,
+[contenteditable]` doesn't start a drag — pressing the close button costs 0 paints and moves
+nothing, and the click still reaches the button.
 
 **Writing the CSS transform is itself a reason for Chrome to repaint.** The engine writes the
 matrix `drawElementImage` returns onto the drawn element (the hit-test sync from the
