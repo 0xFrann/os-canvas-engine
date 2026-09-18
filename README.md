@@ -14,7 +14,7 @@ This is a portfolio piece: an exploration of what a browser-native "OS" could lo
 
 ## How this is built
 
-Feature by feature, not layer by layer. The [roadmap](./docs/roadmap.md) is a ladder of user-visible features — a counter modal drawn through the canvas, then moving it, dragging it, making it a window, a second window, a dock, the rest of the reference desktop — in a rough order that can change as we learn. Each feature is designed only as far as it needs, built, and looked at in Chrome Canary before the next one starts. Engine code (the "render engine" part of the name) is extracted into `packages/` when a feature makes a boundary obvious, not before. Each feature has a [feature note](./docs/features/README.md) with its need, its design, and what was verified on screen.
+Feature by feature, not layer by layer. The [roadmap](./docs/roadmap.md) is a list of user-visible features — a counter modal drawn through the canvas, then moving it, dragging it, making it a window, a second window, a dock, the rest of the reference desktop — in a rough order that can change as we learn. Each feature is designed only as far as it needs, built, and looked at in Chrome Canary before the next one starts. Engine code (the "render engine" part of the name) is extracted into `packages/` when a feature makes a boundary obvious, not before. Each feature has a [feature note](./docs/features/README.md) with its need, its design, and what was verified on screen.
 
 ## Workflow
 

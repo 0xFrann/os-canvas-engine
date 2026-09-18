@@ -2,7 +2,7 @@
 
 Living plan for os-canvas-engine. Status: `todo` | `building` | `done`.
 
-A ladder of user-visible features, in a rough order. The order is orientative — it can change as
+User-visible features, in a rough order. The order is orientative — it can change as
 we learn on screen — and each feature is one branch, one PR. See **How we work** further down.
 
 | Feature | Status | Code | Docs | ADR |
@@ -57,5 +57,5 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-17 | Capability gate: apps/shell (Vite + React) gates on `drawElementImage` support |
 | 2026-09-17 | GitHub Pages deploy wired up (deploy-pages workflow, Vite base path) |
 | 2026-09-17 | First attempt, layer by layer: document, camera, hit-testing, renderer packages (PRs #4–#7). Rendered on screen only at the very end, with one interaction wired |
-| 2026-09-18 | Reset to the CI commit. Roadmap rewritten as a feature ladder; packages removed; browser lessons kept in an [engineering note](./engineering-notes/2026-09-18-reset-to-feature-ladder.md); `pnpm screenshot` kept |
+| 2026-09-18 | Reset to the CI commit. Roadmap rewritten around features; packages removed; browser lessons kept in an [engineering note](./engineering-notes/2026-09-18-reset-to-feature-roadmap.md); `pnpm screenshot` kept |
 | 2026-09-18 | Counter modal drawn through the canvas (React + shadcn/Base UI + Tailwind installed). Chrome fires `paint` by itself on child changes; React needs `layoutsubtree=""` not `{true}`; Base UI needs a Portal with `container` |

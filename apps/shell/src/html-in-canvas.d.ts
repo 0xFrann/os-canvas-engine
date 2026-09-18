@@ -1,6 +1,6 @@
 // Typings for the experimental HTML-in-Canvas API (chrome://flags/#canvas-draw-element).
 // Spec: https://github.com/WICG/html-in-canvas — names are still moving.
-// See docs/engineering-notes/2026-09-18-reset-to-feature-ladder.md for what shipped Chrome accepts.
+// See docs/engineering-notes/2026-09-18-reset-to-feature-roadmap.md for what shipped Chrome accepts.
 
 declare global {
   interface CanvasRenderingContext2D {
