@@ -1,6 +1,7 @@
 import "./html-in-canvas";
 import { attachDragHandle } from "./drag";
-import { moveToFront } from "./order";
+import { cycleOrder, moveToFront, type CycleDirection } from "./order";
+import { focusNextIn } from "./focus";
 
 /** Shipped Chrome (153) wants this boolean attribute on the canvas. */
 export const LAYOUTSUBTREE_ATTRIBUTE = "layoutsubtree";
@@ -9,6 +10,8 @@ export const CONTENT_ATTRIBUTE = "content";
 export const CONTENT_DRAWABLE = "drawable";
 /** Marks a canvas descendant as something `drawElementImage` may draw. */
 export const DRAWABLE_ATTRIBUTE = "drawable";
+
+export type { CycleDirection } from "./order";
 
 export interface Position {
   x: number;
@@ -44,6 +47,15 @@ export interface Engine {
    * engine marks it `drawable` and takes over its geometry and its stacking.
    */
   add(element: HTMLElement, position: Position): DrawableItem;
+  /**
+   * Moves the draw order on by one item, the way a window switcher does: `"forward"` brings the
+   * back-most item to the front, `"backward"` sends the front one to the back. Repeating either
+   * visits every item and comes back to the order it started in.
+   *
+   * *Which key* does this is the host's call — it's OS policy, and the engine has no keyboard
+   * shortcuts of its own.
+   */
+  cycleFront(direction: CycleDirection): void;
   /** Ask the browser for fresh snapshots and a repaint. Rarely needed: Chrome repaints on its own when a drawable child changes. */
   requestPaint(): void;
   dispose(): void;
@@ -59,6 +71,9 @@ export interface Engine {
  * the order to its z-index. Newer Chrome returns nothing and syncs geometry itself, so the transform
  * write becomes a no-op. Either way: the engine owns the drawn rect, the DOM rect, and the order of
  * both. Nothing else positions or stacks a drawable.
+ *
+ * It owns the keyboard inside the scene too: the front item is the active one, Tab stays inside it,
+ * and focus follows it when it changes.
  */
 export function createEngine(canvas: HTMLCanvasElement): Engine {
   canvas.setAttribute(LAYOUTSUBTREE_ATTRIBUTE, "");
@@ -132,7 +147,62 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     }
   };
 
+  /** Whether the keyboard is somewhere inside `element`. */
+  const holdsFocus = (element: HTMLElement) => element.contains(canvas.ownerDocument.activeElement);
+
+  /**
+   * Hands the keyboard to the front item — to the mount, not to a control inside it. Every window's
+   * first control is its close button, and bringing a window forward must not arm it; "the window
+   * has the keyboard, nothing in it does" is also exactly where Tab starts from.
+   */
+  const focusFront = () => {
+    items.at(-1)?.element.focus({ preventScroll: true });
+  };
+
+  /**
+   * After the order changed: focus follows the front item, but only when it is stranded in an item
+   * that is no longer in front. Focus outside the scene — the dock icon someone just clicked — is
+   * left where it is, and so is a press on a control: the browser focuses what was pressed right
+   * after this runs, so the pressed control still wins.
+   */
+  const followFront = () => {
+    const front = items.at(-1);
+    if (!front || holdsFocus(front.element)) {
+      return;
+    }
+    if (items.some((item) => holdsFocus(item.element))) {
+      focusFront();
+    }
+  };
+
+  /*
+   * Tab never leaves the front item: on a desktop the keyboard doesn't cross from one window into
+   * another, or out into the chrome around them. On the document rather than the canvas, because a
+   * key goes to whatever has focus, and while a window is open that may well be the page's own
+   * chrome — which is precisely the case this has to catch.
+   */
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      event.key !== "Tab" ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    ) {
+      return;
+    }
+    const front = items.at(-1);
+    if (!front) {
+      // Nothing is drawn, so there is no window to stay inside: the page's own Tab order is right.
+      return;
+    }
+    // Always, not only at the ends — at every position the browser's next stop is outside the item.
+    event.preventDefault();
+    focusNextIn(front.element, event.shiftKey);
+  };
+
   canvas.addEventListener("paint", render);
+  canvas.ownerDocument.addEventListener("keydown", onKeyDown);
   const observer = new ResizeObserver(requestPaint);
   observer.observe(canvas);
 
@@ -146,6 +216,15 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       const madeRelative = getComputedStyle(element).position === "static";
       if (madeRelative) {
         element.style.position = "relative";
+      }
+      /*
+       * Where the keyboard goes when this item comes to the front. `-1` keeps the mount itself out
+       * of the page's Tab order — Tab inside an item is the engine's to run — and written once here
+       * rather than toggled per paint, which would be a reason for Chrome to fire another one.
+       */
+      const madeFocusable = !element.hasAttribute("tabindex");
+      if (madeFocusable) {
+        element.setAttribute("tabindex", "-1");
       }
       const current = { ...position };
       /*
@@ -172,9 +251,21 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         raise() {
           if (moveToFront(items, item)) {
             schedulePaint();
+            followFront();
           }
         },
         remove() {
+          /*
+           * Asked before the splice: afterwards this item is not in the scene to be stranded in.
+           * The second half is for the ordinary case — a window closed by its own close button.
+           * React detaches the DOM before it runs the effect cleanup that calls this, so the
+           * focused control is already gone and the document is left with nothing focused; an
+           * element that is no longer connected is how that is told apart from a removal that
+           * never had the keyboard. It can't steal focus either way, because there is none.
+           */
+          const { activeElement, body } = canvas.ownerDocument;
+          const nothingFocused = !activeElement || activeElement === body;
+          const strandsFocus = holdsFocus(element) || (!element.isConnected && nothingFocused);
           const index = items.indexOf(item);
           if (index !== -1) {
             items.splice(index, 1);
@@ -186,6 +277,13 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
           if (madeRelative) {
             element.style.position = "";
           }
+          if (madeFocusable) {
+            element.removeAttribute("tabindex");
+          }
+          if (strandsFocus) {
+            // Closing the front window makes the next one active, and the keyboard goes with it.
+            focusFront();
+          }
           requestPaint();
         },
       };
@@ -195,9 +293,16 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       return item;
     },
     canvas,
+    cycleFront(direction) {
+      if (cycleOrder(items, direction)) {
+        schedulePaint();
+        followFront();
+      }
+    },
     dispose() {
       observer.disconnect();
       canvas.removeEventListener("paint", render);
+      canvas.ownerDocument.removeEventListener("keydown", onKeyDown);
       // Each one splices itself out of the list, so take the last until there is none.
       while (items.length > 0) {
         items.at(-1)?.remove();

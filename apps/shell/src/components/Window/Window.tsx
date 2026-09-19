@@ -100,7 +100,11 @@ export function Window({ children, initialPosition, onClose, ref, title }: Windo
     <Drawable
       initialPosition={initialPosition}
       ref={ref}
-      className="pointer-events-none w-max px-9 pt-8 pb-10"
+      /* The engine makes the mount focusable so the active window can hold the keyboard with no
+         control in it focused. That is not something this desktop draws: the UA ring would frame
+         the whole mount — shadow band and all — and mark the active window, which nothing here has
+         decided to do. */
+      className="pointer-events-none w-max px-9 pt-8 pb-10 outline-none"
     >
       <div className="pointer-events-auto w-sm overflow-hidden rounded-window border-2 border-window-border bg-window text-window-foreground drop-shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
         <WindowHeader title={title} onClose={onClose} />

@@ -19,3 +19,28 @@ export function moveToFront<T>(list: T[], item: T): boolean {
   list.push(item);
   return true;
 }
+
+/** Which way a cycle walks the order: to the next item, or back to the previous one. */
+export type CycleDirection = "backward" | "forward";
+
+/**
+ * Moves the order on by one, the way a window switcher does: **forward** brings the back-most item
+ * to the front, **backward** sends the front item to the back.
+ *
+ * They are exact inverses, and either one repeated visits every item and returns the list to
+ * itself — which "raise the one behind the front" does not do, because that only ever swaps the top
+ * two.
+ *
+ * @returns whether the order changed, so a list of one (or none) costs no repaint.
+ */
+export function cycleOrder<T>(list: T[], direction: CycleDirection): boolean {
+  if (list.length < 2) {
+    return false;
+  }
+  if (direction === "forward") {
+    list.push(...list.splice(0, 1));
+  } else {
+    list.unshift(...list.splice(-1, 1));
+  }
+  return true;
+}
