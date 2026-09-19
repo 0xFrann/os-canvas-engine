@@ -1,5 +1,5 @@
 import { ArrowLeft, Image, Languages, type LucideIcon } from "lucide-react";
-import { useDesktop } from "@/desktop";
+import { useDesktop } from "../desktop";
 import { useState } from "react";
 
 interface OptionProps {

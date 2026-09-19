@@ -1,5 +1,5 @@
 {
-  "name": "@os-canvas/shell",
+  "name": "@os-canvas/desktop",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,12 +11,11 @@
     "test": "echo \"no tests yet\" && exit 0"
   },
   "dependencies": {
-    "@base-ui/react": "1.8.0",
     "@fontsource-variable/geist": "5.3.0",
+    "@os-canvas/apps": "workspace:*",
     "@os-canvas/react": "workspace:*",
+    "@os-canvas/ui": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
-    "class-variance-authority": "0.7.1",
-    "cn": "0.3.0",
     "lucide-react": "1.47.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

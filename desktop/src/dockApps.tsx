@@ -1,8 +1,6 @@
 import { AppWindow, Calculator, Settings as SettingsIcon, type LucideIcon } from "lucide-react";
-import { CounterModal } from "@apps/CounterModal";
-import { ExampleApp } from "@apps/ExampleApp";
+import { Counter, ExampleApp, Settings } from "@os-canvas/apps";
 import type { ReactNode } from "react";
-import { Settings } from "@apps/Settings";
 import type { WindowSize } from "@/components/Window";
 
 /**
@@ -34,7 +32,7 @@ export interface DockApp {
  */
 export const DOCK_APPS: readonly DockApp[] = [
   {
-    content: <CounterModal />,
+    content: <Counter />,
     icon: Calculator,
     id: "counter",
     label: "Counter",

@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/index.css",
+    "css": "../../desktop/src/index.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
@@ -13,11 +13,11 @@
   "iconLibrary": "lucide",
   "rtl": false,
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@os-canvas/ui",
+    "utils": "@os-canvas/ui",
+    "ui": "@os-canvas/ui",
+    "lib": "@os-canvas/ui",
+    "hooks": "@os-canvas/ui"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

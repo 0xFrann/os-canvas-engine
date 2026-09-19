@@ -3,6 +3,13 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
+/*
+ * The theme and the Tailwind setup live here, in the desktop, and only here. The UI components and
+ * the apps are workspace packages, which Tailwind does not scan on its own, so they are named.
+ */
+@source "../../packages/ui/src";
+@source "../../apps/src";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {

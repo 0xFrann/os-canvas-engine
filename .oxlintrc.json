@@ -20,10 +20,5 @@
     "eslint/max-params": "off",
     "eslint/sort-imports": "off"
   },
-  "ignorePatterns": [
-    "**/dist/**",
-    "**/coverage/**",
-    "**/node_modules/**",
-    "apps/shell/src/components/ui/**"
-  ]
+  "ignorePatterns": ["**/dist/**", "**/coverage/**", "**/node_modules/**", "packages/ui/src/**"]
 }

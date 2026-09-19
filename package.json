@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "dev": "pnpm --filter @os-canvas/shell dev",
+    "dev": "pnpm --filter @os-canvas/desktop dev",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint .",

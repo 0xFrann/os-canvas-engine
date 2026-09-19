@@ -15,7 +15,7 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 | An active window (Tab stays inside the front one, Ctrl+` switches, focus follows) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/active-window.md), [engineering note](./engineering-notes/2026-09-18-inert-and-keyboard-confinement.md) | [007](./decisions/007-active-is-the-front-window.md) |
 | A wallpaper the user can change (the engine draws it; Settings chooses it; windows get viewport-relative sizes) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/wallpaper.md), [engineering note](./engineering-notes/2026-09-18-wallpaper-in-the-canvas.md) | [008](./decisions/008-the-engine-draws-the-background.md) |
 | An animated wallpaper | todo | — | — | — |
-| The rest of the reference desktop (menu bar + fullscreen, boot splash, desktop icon grid, Example Two) | todo | `apps/shell` | — | — |
+| The rest of the reference desktop (menu bar + fullscreen, boot splash, desktop icon grid, Example Two) | todo | `desktop`, `apps` | — | — |
 | Beyond the reference: what canvas makes possible (pan/zoom the desktop, …) | todo | — | — | — |
 
 Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-canvas-engine/) (deploys from `main` on every push).
@@ -65,9 +65,14 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
   logic, but never stand in for the browser here — no test shim implements this API.
 - **The engine is a library, the desktop is a React app.** `packages/engine` (`@os-canvas/engine`)
   is plain TypeScript with an imperative API and no React; `packages/react` (`@os-canvas/react`)
-  is the thin binding; `apps/shell` is the desktop, which initializes the engine and renders
-  everything on screen, with React apps under `apps/shell/src/apps/<Name>/`
-  ([ADR 003](./decisions/003-engine-is-a-library-plugged-into-react.md)).
+  is the thin binding; `desktop/` (`@os-canvas/desktop`) is the OS host, which initializes the
+  engine and renders everything on screen; the programs it runs are `apps/` (`@os-canvas/apps`,
+  one folder each under `apps/src/`), and the shadcn components they share are `packages/ui`
+  (`@os-canvas/ui`). Dependencies go one way: apps → ui; desktop → react, ui, apps; nothing imports
+  the desktop, and apps never import the binding or the engine
+  ([ADR 003](./decisions/003-engine-is-a-library-plugged-into-react.md),
+  [ADR 009](./decisions/009-the-desktop-is-not-an-app.md)). Rows above that say `apps/shell` were
+  written before the move.
   Anything else is extracted when a feature needs it, not before.
 - **No invented content.** What the shell shows comes from the reference desktop
   ([desktop-os-react-next](https://github.com/0xFrann/desktop-os-react-next)) or from an explicit
@@ -96,3 +101,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-18 | A dock opens them, and the feature became *multiple windows*: which windows exist is React state in the desktop, positions and draw order stay in the engine, and the only new binding is `<Drawable ref>` handing back the `DrawableItem` so the dock can `raise()` a window nobody is pointing at. `packages/engine` unchanged. The close button is finally wired. ADR 006: the dock is chrome laid over the canvas, not a drawable — hovering it costs the canvas 0 paints. The reference desktop is the source of truth for what exists and how it behaves, not for how it looks: the dock's look is this project's own (Tailwind, shadcn/Base UI tooltip, lucide icons), after a first pass that ported its SCSS was thrown away |
 | 2026-09-18 | An active window: active *is* the front one, so no new state — Tab is confined to it and wraps, Ctrl+` cycles (`code`, not `key`), and focus follows the front window onto its mount rather than onto a control, because every window's first control is its close button. `inert` was tried on screen first and rejected: it leaves the snapshot byte-identical but takes a buried window out of hit-testing, so pressing it stops raising it. The engine handles `keydown` on the document and gained one method; which key it is stays the desktop's, and `<CanvasSurface ref>` now hands back the engine so `App` can bind it. ADR 007. No active-window marker — what should show it, if anything, is still undecided |
 | 2026-09-18 | A wallpaper the user can change, and the desktop stopped having a CSS background: the engine fills the canvas under the items, with a color or an image fitted to cover, and that is one new method and one step of the render pass — not an item, not a loader, not a model. ADR 008. Loading and remembering are the desktop's; the Settings app only asks it, through a small context, which is ADR 004 holding for something that is not a window. Per-app window sizes came with it, `clamp()` of the viewport rather than the reference's `vw`/`vh` numbers, so a window is the width it has always been at 1280 and still whole at 800; the first window is centred and the rest cascade from *its* corner, after cascading from each window's own centre put two windows 5px apart. Measured: a change costs the engine 1 paint, the same one again 0, idle stays 0/s with an image on screen, a resize re-lays out for 1 paint with no engine call, and the first render of a cold load already has the wallpaper on it |
+| 2026-09-19 | Workspace layout: the desktop is not an app. `apps/shell` became `desktop/` (`@os-canvas/desktop`), the programs became one package, `apps/` (`@os-canvas/apps`), and the shadcn components `packages/ui` (`@os-canvas/ui`); dependencies go one way and the theme stays in the desktop, with `@source` lines for the other two. The contract an app has with the desktop (`useDesktop`) lives with the apps, so Settings needs nothing from the host's package. No behaviour change: the built CSS is byte-identical. ADR 009 |
