@@ -14,14 +14,15 @@
  *   CLICK_AT="300,200;520,340" pnpm screenshot  # ...or several, in order (raise one thing, then use it)
  *   DRAG="300,200:520,340" pnpm screenshot  # press, move in steps, release (DRAG_STEPS=n, DRAG_STEP_MS=ms)
  *   HIT_AT="300,200;520,340" pnpm screenshot  # report which drawable owns those points (who a click would reach)
+ *   KEYS="Tab;Tab;Shift+Tab;Ctrl+Backquote" pnpm screenshot  # press keys in order, reporting what each one focuses
  *   DPR=2 pnpm screenshot                 # emulate a 2x display
  *
- * One run does its actions in this order: CLICK (selectors), then DRAG, then CLICK_AT (points).
- * Selectors act on the page's own chrome — a dock icon that opens a window — so they go first;
- * points act on what is *drawn*, which those windows are, so they go last and can use where a drag
- * left something. While any of it happens, the page counts the canvas's `paint` events and the
- * pointer events the drag produced, and the summary reports them — that's how repaint rate gets
- * looked at.
+ * One run does its actions in this order: CLICK (selectors), then DRAG, then CLICK_AT (points),
+ * then KEYS. Selectors act on the page's own chrome — a dock icon that opens a window — so they go
+ * first; points act on what is *drawn*, which those windows are, so they come next and can use
+ * where a drag left something; keys act on whatever the pointer left focused, so they go last.
+ * While any of it happens, the page counts the canvas's `paint` events and the pointer events the
+ * drag produced, and the summary reports them — that's how repaint rate gets looked at.
  *
  * Also prints console output from the page and a summary of the canvas's
  * drawable mounts, which is usually enough to tell *why* a screenshot is blank.
@@ -46,6 +47,21 @@ const hitAt = points(process.env.HIT_AT);
 const drag = process.env.DRAG?.split(":").map((p) => p.split(",").map(Number));
 const dragSteps = Number(process.env.DRAG_STEPS ?? 24);
 const dragStepMs = Number(process.env.DRAG_STEP_MS ?? 8);
+const keys = process.env.KEYS?.split(";");
+
+/**
+ * The keys a desktop is driven with, by `KeyboardEvent.code`. A synthetic key needs the virtual
+ * key code as well as the name, or Chrome dispatches the event without doing what the key does —
+ * Tab in particular moves focus from the code, not from `key`.
+ */
+const KEY_CODES = {
+  Backquote: { key: "`", keyCode: 192 },
+  Enter: { key: "Enter", keyCode: 13 },
+  Escape: { key: "Escape", keyCode: 27 },
+  Tab: { key: "Tab", keyCode: 9 },
+};
+/** CDP's modifier bitmask. */
+const MODIFIERS = { Alt: 1, Ctrl: 2, Meta: 4, Shift: 8 };
 
 function findChrome() {
   if (process.env.CHROME) {
@@ -170,6 +186,9 @@ try {
     { deviceScaleFactor: dpr, height, mobile: false, width },
     sessionId,
   );
+  /* A headless window is never the OS's focused window, so without this the page reports no focus
+     and Tab moves nothing. */
+  await send("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId);
   await send("Page.navigate", { url }, sessionId);
   await new Promise((r) => setTimeout(r, waitMs));
 
@@ -181,6 +200,28 @@ try {
     send("Runtime.evaluate", { expression, returnByValue: true }, sessionId).then(
       (r) => r.result.value,
     );
+  /*
+   * Where the keyboard is, said the way this desktop thinks about it: which drawable the focused
+   * element is in (a window), or that it is page chrome, plus whether it is the mount itself
+   * rather than a control inside it.
+   */
+  const ACTIVE_ELEMENT = `(() => {
+    const el = document.activeElement;
+    if (!el || el === document.body) return "body (nothing focused)";
+    const mount = el.closest("[drawable]");
+    const label = (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 16);
+    const what = el === mount ? "the mount" : el.tagName.toLowerCase() + (label ? ' "' + label + '"' : "");
+    const where = mount
+      ? "drawable z" + mount.style.zIndex + " " + mount.textContent.trim().slice(0, 16)
+      : (el.closest(".desktop") ? "desktop chrome" : "the page");
+    return what + " in " + where;
+  })()`;
+  /** The draw order as one line, back to front — which window a shortcut just brought forward. */
+  const DRAW_ORDER = `[...document.querySelectorAll("canvas [drawable]")]
+    .toSorted((a, b) => Number(a.style.zIndex) - Number(b.style.zIndex))
+    .map((el) => el.textContent.trim().slice(0, 12) + " z" + el.style.zIndex)
+    .join(" | ")`;
+
   /** Where to aim at a selector: the center of the first match's DOM rect, or null. */
   const centerOf = (selector) =>
     probe(`(() => {
@@ -214,7 +255,7 @@ try {
     /* oxlint-enable no-await-in-loop */
   };
 
-  if (drag || click || clickAt || hover) {
+  if (drag || click || clickAt || hover || keys) {
     await probe(`(() => {
       const counts = { paints: 0, pointerdown: 0, pointermove: 0, pointerup: 0, since: performance.now() };
       window.__probe = counts;
@@ -301,6 +342,54 @@ try {
     await clickTargets(clickAt.map(([x, y]) => ({ label: `(${x}, ${y})`, point: { x, y } })));
   }
 
+  if (keys) {
+    // Sequential on purpose: each key acts on whatever the one before it focused.
+    /* oxlint-disable no-await-in-loop */
+    for (const spec of keys) {
+      const parts = spec.split("+");
+      const code = parts.pop();
+      const named = KEY_CODES[code];
+      if (!named) {
+        throw new Error(`KEYS: no key named ${code} (known: ${Object.keys(KEY_CODES).join(", ")})`);
+      }
+      let modifiers = 0;
+      for (const part of parts) {
+        if (!MODIFIERS[part]) {
+          throw new Error(`KEYS: no modifier named ${part}`);
+        }
+        modifiers |= MODIFIERS[part];
+      }
+      for (const type of ["rawKeyDown", "keyUp"]) {
+        await send(
+          "Input.dispatchKeyEvent",
+          {
+            code,
+            key: named.key,
+            modifiers,
+            nativeVirtualKeyCode: named.keyCode,
+            type,
+            windowsVirtualKeyCode: named.keyCode,
+          },
+          sessionId,
+        );
+      }
+      await new Promise((r) => setTimeout(r, 300));
+      const report = await probe(`(() => {
+        const { paints } = window.__probe;
+        window.__probe.paints = 0;
+        return { active: ${ACTIVE_ELEMENT}, order: ${DRAW_ORDER}, paints };
+      })()`);
+      let order = "";
+      if (report.order) {
+        order = ` — order ${report.order}`;
+      }
+      console.log(
+        `pressed ${spec}: focus on ${report.active}, ${report.paints} paint events${order}`,
+      );
+    }
+    /* oxlint-enable no-await-in-loop */
+  }
+
   if (hover) {
     const point = await centerOf(hover);
     if (!point) {
@@ -319,6 +408,18 @@ try {
     );
   }
 
+  if (drag || click || clickAt || hover || keys) {
+    /* A second of nothing *after* the interactions, not just before them: a repaint loop is as
+       easy to open by leaving something focused or hovered as by a bad write in the paint pass. */
+    await new Promise((r) => setTimeout(r, 1000));
+    const idle = await probe(`(() => {
+      const { paints } = window.__probe;
+      window.__probe.paints = 0;
+      return paints;
+    })()`);
+    console.log(`idle afterwards: ${idle} paint events in 1000ms`);
+  }
+
   const { result } = await send(
     "Runtime.evaluate",
     {
@@ -327,12 +428,13 @@ try {
         if (!canvas) return { supported: "drawElementImage" in CanvasRenderingContext2D.prototype, canvas: null };
         return {
           supported: "drawElementImage" in CanvasRenderingContext2D.prototype,
+          active: ${ACTIVE_ELEMENT},
           canvas: { width: canvas.width, height: canvas.height, content: canvas.getAttribute("content"), layoutsubtree: canvas.hasAttribute("layoutsubtree") },
           elementApi: Object.getOwnPropertyNames(CanvasRenderingContext2D.prototype).filter((n) => /element/i.test(n)),
           mounts: [...canvas.querySelectorAll("[drawable]")].map((el) => {
             const r = el.getBoundingClientRect();
             return {
-              domRect: [r.x, r.y, r.width, r.height].map(Math.round).join(" "), zIndex: el.style.zIndex, inert: el.inert, text: el.textContent.slice(0, 40),
+              domRect: [r.x, r.y, r.width, r.height].map(Math.round).join(" "), zIndex: el.style.zIndex, inert: el.inert, tabindex: el.getAttribute("tabindex"), text: el.textContent.slice(0, 40),
             };
           }),
           // Who a click at each HIT_AT point would reach: the drawable that owns the topmost element there.

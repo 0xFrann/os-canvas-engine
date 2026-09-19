@@ -1,4 +1,4 @@
-import { moveToFront } from "./order.ts";
+import { cycleOrder, moveToFront } from "./order.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -25,4 +25,41 @@ test("raising each in turn ends with the last one raised in front", () => {
   moveToFront(list, "b");
   moveToFront(list, "a");
   assert.deepEqual(list, ["c", "b", "a"]);
+});
+
+test("cycling forward brings the back-most item to the front", () => {
+  const list = ["a", "b", "c"];
+  assert.equal(cycleOrder(list, "forward"), true);
+  assert.deepEqual(list, ["b", "c", "a"]);
+});
+
+test("cycling backward sends the front item to the back", () => {
+  const list = ["a", "b", "c"];
+  assert.equal(cycleOrder(list, "backward"), true);
+  assert.deepEqual(list, ["c", "a", "b"]);
+});
+
+test("cycling one way then the other leaves the order alone", () => {
+  const list = ["a", "b", "c"];
+  cycleOrder(list, "forward");
+  cycleOrder(list, "backward");
+  assert.deepEqual(list, ["a", "b", "c"]);
+});
+
+test("cycling as many times as there are items comes back to the start", () => {
+  const list = ["a", "b", "c"];
+  const fronts = Array.from({ length: list.length }, () => {
+    cycleOrder(list, "forward");
+    return list.at(-1);
+  });
+  // Every window is visited once, and the last press restores the order it started in.
+  assert.deepEqual(fronts, ["a", "b", "c"]);
+  assert.deepEqual(list, ["a", "b", "c"]);
+});
+
+test("there is nothing to cycle with one window, or none", () => {
+  const one = ["a"];
+  assert.equal(cycleOrder(one, "forward"), false);
+  assert.deepEqual(one, ["a"]);
+  assert.equal(cycleOrder([], "backward"), false);
 });

@@ -12,7 +12,7 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 | Draw the modal somewhere other than (0, 0) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/modal-position.md) | [003](./decisions/003-engine-is-a-library-plugged-into-react.md) |
 | A window with a draggable header (the reference desktop's window chrome) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/window-drag.md), [engineering note](./engineering-notes/2026-09-18-drag-repaint.md) | [004](./decisions/004-window-chrome-belongs-to-the-desktop.md) |
 | Multiple windows, opened from a dock (overlap, click-to-raise, close) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/multiple-windows.md), [engineering note](./engineering-notes/2026-09-18-overlap-hit-order.md) | [005](./decisions/005-draw-order-lives-in-the-engine.md), [006](./decisions/006-the-dock-is-chrome-over-the-canvas.md) |
-| Keyboard focus follows the active window (Tab stays inside the front window) — to be discussed, see the [finding](./features/multiple-windows.md#found-on-screen-to-be-discussed) | todo | `packages/engine`, `apps/shell` | — | — |
+| An active window (Tab stays inside the front one, Ctrl+` switches, focus follows) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/active-window.md), [engineering note](./engineering-notes/2026-09-18-inert-and-keyboard-confinement.md) | [007](./decisions/007-active-is-the-front-window.md) |
 | The rest of the reference desktop (wallpaper, menu bar + fullscreen, boot splash, desktop icon grid, Settings' background chooser, Example Two) | todo | `apps/shell` | — | — |
 | Beyond the reference: what canvas makes possible (pan/zoom the desktop, …) | todo | — | — | — |
 
@@ -33,6 +33,12 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
   which windows exist becomes React state while positions and order stay the engine's. Decided
   here: many windows at once, where the reference shows one; and the dock is chrome laid over the
   canvas, not something the engine draws.
+- **An active window** — the first consumer of that ordered list outside the render loop, and the
+  question ADR 005 left open: are "in front" and "active" two things or one? One — so there is no
+  new state anywhere. Which makes the keyboard inside the scene the engine's (Tab confined to the
+  front item, focus following it when it changes) and leaves the desktop only the choice of *which
+  key* switches windows, because a shortcut is OS policy. The list grew one operation, not a
+  document.
 - **Rest of the reference desktop** — the shell is complete as a port.
 - **Beyond the reference** — picked and designed when we get there, not now.
 
@@ -76,3 +82,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-18 | The modal became a window: chrome (header, close, the reference's `apps-window` look) belongs to the desktop's `Window` component, apps get a content slot, and the Base UI Dialog is gone. Header layout is macOS-style — controls top left, app's area with the title to the right of them, every empty pixel drags. The engine ignores presses on interactive elements, so the close button works inside the handle. ADR 004 |
 | 2026-09-18 | Two overlapping windows: the engine's items became an ordered list drawn back to front, with `item.raise()` and a raise on `pointerdown`. Draw order does not reach hit-testing: the mounts are static siblings, so Chrome hit-tests them in DOM order and the engine has to write `z-index` (plus `position: relative`) alongside the transform. Two windows cost the same paints as one; idle stays at 0. ADR 005. The second window's content is the reference's Example app, ported as it is |
 | 2026-09-18 | A dock opens them, and the feature became *multiple windows*: which windows exist is React state in the desktop, positions and draw order stay in the engine, and the only new binding is `<Drawable ref>` handing back the `DrawableItem` so the dock can `raise()` a window nobody is pointing at. `packages/engine` unchanged. The close button is finally wired. ADR 006: the dock is chrome laid over the canvas, not a drawable — hovering it costs the canvas 0 paints. The reference desktop is the source of truth for what exists and how it behaves, not for how it looks: the dock's look is this project's own (Tailwind, shadcn/Base UI tooltip, lucide icons), after a first pass that ported its SCSS was thrown away |
+| 2026-09-18 | An active window: active *is* the front one, so no new state — Tab is confined to it and wraps, Ctrl+` cycles (`code`, not `key`), and focus follows the front window onto its mount rather than onto a control, because every window's first control is its close button. `inert` was tried on screen first and rejected: it leaves the snapshot byte-identical but takes a buried window out of hit-testing, so pressing it stops raising it. The engine handles `keydown` on the document and gained one method; which key it is stays the desktop's, and `<CanvasSurface ref>` now hands back the engine so `App` can bind it. ADR 007. No active-window marker — what should show it, if anything, is still undecided |
