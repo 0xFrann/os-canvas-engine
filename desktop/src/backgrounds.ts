@@ -1,17 +1,5 @@
+import type { DesktopBackground } from "@os-canvas/apps";
 import fieldUrl from "./assets/wallpapers/field.svg";
-
-/**
- * A wallpaper: either a picture the engine covers the desktop with, or a flat color it fills with.
- */
-export interface DesktopBackground {
-  /** A CSS color, for a wallpaper that is a flat shade. */
-  color?: string;
-  id: string;
-  /** What Settings calls it, and the accessible name of its thumbnail. */
-  label: string;
-  /** The image's URL, for a wallpaper that is a picture. */
-  src?: string;
-}
 
 /**
  * The wallpapers the desktop offers — the reference desktop has two

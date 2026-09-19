@@ -14,8 +14,8 @@ import {
   readyBackground,
 } from "./backgrounds";
 import { centeredPosition, Window } from "./components/Window";
-import { DOCK_APPS } from "@apps/dockApps";
-import { type Desktop, DesktopProvider } from "./desktop";
+import { DOCK_APPS } from "./dockApps";
+import { type Desktop, DesktopProvider } from "@os-canvas/apps";
 import { Dock } from "./components/Dock";
 import { UnsupportedBrowser } from "./UnsupportedBrowser";
 import { detectHtmlInCanvasSupport } from "./detectHtmlInCanvasSupport";

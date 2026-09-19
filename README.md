@@ -14,7 +14,7 @@ This is a portfolio piece: an exploration of what a browser-native "OS" could lo
 
 ## How this is built
 
-Feature by feature, not layer by layer. The [roadmap](./docs/roadmap.md) is a list of user-visible features — a counter modal drawn through the canvas, then moving it, then a window with a draggable header, multiple windows opened from a dock, the rest of the reference desktop — in a rough order that can change as we learn. Each feature is designed only as far as it needs, built, and looked at in Chrome Canary before the next one starts. The engine (`packages/engine`, `@os-canvas/engine`) is a plain-TypeScript library with an imperative API; `@os-canvas/react` (`packages/react`) is the thin React binding; the desktop (`apps/shell`) is a React app that plugs it in — see [ADR 003](./docs/decisions/003-engine-is-a-library-plugged-into-react.md). Anything else is extracted when a feature makes a boundary obvious, not before. Each feature has a [feature note](./docs/features/README.md) with its need, its design, and what was verified on screen.
+Feature by feature, not layer by layer. The [roadmap](./docs/roadmap.md) is a list of user-visible features — a counter modal drawn through the canvas, then moving it, then a window with a draggable header, multiple windows opened from a dock, the rest of the reference desktop — in a rough order that can change as we learn. Each feature is designed only as far as it needs, built, and looked at in Chrome Canary before the next one starts. The engine (`packages/engine`, `@os-canvas/engine`) is a plain-TypeScript library with an imperative API; `@os-canvas/react` (`packages/react`) is the thin React binding; the desktop (`desktop/`, `@os-canvas/desktop`) is a React app that plugs it in — see [ADR 003](./docs/decisions/003-engine-is-a-library-plugged-into-react.md); the programs it runs are one package (`apps/`, `@os-canvas/apps`) and the shadcn components they share another (`packages/ui`, `@os-canvas/ui`), with dependencies going one way — see [ADR 009](./docs/decisions/009-the-desktop-is-not-an-app.md). Anything else is extracted when a feature makes a boundary obvious, not before. Each feature has a [feature note](./docs/features/README.md) with its need, its design, and what was verified on screen.
 
 ## Workflow
 
@@ -23,8 +23,8 @@ Each feature is its own branch and PR against `main`, with a screenshot from Chr
 ## Scripts
 
 - `pnpm install`
-- `pnpm dev` — run the shell app
+- `pnpm dev` — run the desktop
 - `pnpm test` — unit tests (none yet)
-- `pnpm typecheck` — TypeScript across the engine and the app
+- `pnpm typecheck` — TypeScript across every package
 - `pnpm lint` / `pnpm format`
 - `pnpm screenshot` — loads the running dev server in a headless Chrome with the HTML-in-Canvas flag and saves `screenshot.png` (see `scripts/screenshot.mjs` for `CHROME` / `URL` overrides)

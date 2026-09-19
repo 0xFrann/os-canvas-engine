@@ -1,5 +1,5 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@ui";
-import type { DockApp } from "@apps/dockApps";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@os-canvas/ui";
+import type { DockApp } from "@/dockApps";
 import type { RefObject } from "react";
 
 export interface DockProps {

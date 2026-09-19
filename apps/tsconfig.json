@@ -8,12 +8,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "rootDir": "src",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@ui": ["./src/components/ui"],
-      "@apps/*": ["./src/apps/*"]
-    }
+    "rootDir": "src"
   },
   "include": ["src"]
 }

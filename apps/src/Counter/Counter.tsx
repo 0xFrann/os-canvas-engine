@@ -1,11 +1,11 @@
-import { Button } from "@ui";
+import { Button } from "@os-canvas/ui";
 import { useState } from "react";
 
 /**
  * The counter: a number and a button that increments it. It is content and nothing else — the
  * desktop puts it in a window, which is what carries the title and drags (ADR 004).
  */
-export function CounterModal() {
+export function Counter() {
   const [count, setCount] = useState(0);
 
   return (

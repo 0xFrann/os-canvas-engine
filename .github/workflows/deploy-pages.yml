@@ -1,4 +1,4 @@
-name: Deploy shell to GitHub Pages
+name: Deploy desktop to GitHub Pages
 
 on:
   push:
@@ -30,12 +30,12 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @os-canvas/shell build
+      - run: pnpm --filter @os-canvas/desktop build
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/shell/dist
+          path: desktop/dist
 
   deploy:
     needs: build

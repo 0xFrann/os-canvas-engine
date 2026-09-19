@@ -14,10 +14,7 @@ export default defineConfig(({ command }) => {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        // Vite matches a string alias only as the whole specifier or followed by "/", so "@" won't swallow "@ui".
         "@": path.resolve(import.meta.dirname, "./src"),
-        "@apps": path.resolve(import.meta.dirname, "./src/apps"),
-        "@ui": path.resolve(import.meta.dirname, "./src/components/ui"),
       },
     },
   };
