@@ -40,6 +40,27 @@ export interface DrawableItem {
   remove(): void;
 }
 
+/**
+ * The pixel size of an image source, which is what a cover fit needs and what `drawImage` itself
+ * does not tell you. An `<img>` reports its own; everything else `drawImage` takes is already a
+ * pixel buffer with a width and a height.
+ */
+function sourceSize(source: CanvasImageSource): { height: number; width: number } {
+  if (source instanceof HTMLImageElement) {
+    return { height: source.naturalHeight, width: source.naturalWidth };
+  }
+  if (source instanceof HTMLVideoElement) {
+    return { height: source.videoHeight, width: source.videoWidth };
+  }
+  if (source instanceof SVGImageElement) {
+    return { height: source.height.baseVal.value, width: source.width.baseVal.value };
+  }
+  if ("displayWidth" in source) {
+    return { height: source.displayHeight, width: source.displayWidth };
+  }
+  return { height: source.height, width: source.width };
+}
+
 export interface Engine {
   readonly canvas: HTMLCanvasElement;
   /**
@@ -58,6 +79,19 @@ export interface Engine {
   cycleFront(direction: CycleDirection): void;
   /** Ask the browser for fresh snapshots and a repaint. Rarely needed: Chrome repaints on its own when a drawable child changes. */
   requestPaint(): void;
+  /**
+   * What the canvas is covered with before any item is drawn — the desktop's wallpaper. A CSS color
+   * (anything `fillStyle` takes), or an image, which is drawn to **cover** the canvas: scaled up to
+   * fill it, aspect ratio kept, centred, and whatever hangs over the edge is cropped. `null` leaves
+   * the canvas transparent, which is what it was before there was a wallpaper.
+   *
+   * The engine does not load anything. An image must already be decoded when it arrives — the host
+   * owns the network, and a half-loaded image drawn here is a frame of nothing.
+   *
+   * It is not an item: it has no element, no place in the draw order, and nothing can raise, pick
+   * or remove it. Setting the value it already has does nothing.
+   */
+  setBackground(background: string | CanvasImageSource | null): void;
   dispose(): void;
 }
 
@@ -73,7 +107,8 @@ export interface Engine {
  * both. Nothing else positions or stacks a drawable.
  *
  * It owns the keyboard inside the scene too: the front item is the active one, Tab stays inside it,
- * and focus follows it when it changes.
+ * and focus follows it when it changes. And it fills the canvas under the items with whatever
+ * background the host set, so every pixel of the surface comes from this render pass.
  */
 export function createEngine(canvas: HTMLCanvasElement): Engine {
   canvas.setAttribute(LAYOUTSUBTREE_ATTRIBUTE, "");
@@ -81,6 +116,9 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
 
   /** Draw order, back to front: the last one is drawn on top and hit-tested first. */
   const items: DrawableItem[] = [];
+
+  /** What goes under everything. Null until the host sets one: an unpainted canvas is transparent. */
+  let background: string | CanvasImageSource | null = null;
 
   /*
    * How repaint is driven: the browser's paint cycle is the frame loop. The engine marks itself
@@ -98,6 +136,42 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     if (!paintPending) {
       requestPaint();
     }
+  };
+
+  /**
+   * The wallpaper: the one thing the engine draws that is not a DOM element, under every item and
+   * across the whole backing store, which is what makes a screenshot of the canvas a screenshot of
+   * the desktop (ADR 008).
+   *
+   * Its own step of the render pass, so that something which has to change it per frame — a
+   * wallpaper that moves — has one place to drive.
+   */
+  const drawBackground = (ctx: CanvasRenderingContext2D) => {
+    if (background === null) {
+      return;
+    }
+    const { height, width } = canvas;
+    if (typeof background === "string") {
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, width, height);
+      return;
+    }
+    /*
+     * Cover, not stretch: the larger of the two scales fills the canvas, and the overflow is
+     * centred so it is cropped evenly on both sides. In backing-store pixels like the rest of the
+     * pass, so a 2x display crops the same box out of a twice-as-sharp image.
+     */
+    const source = sourceSize(background);
+    const scale = Math.max(width / source.width, height / source.height);
+    const drawnWidth = source.width * scale;
+    const drawnHeight = source.height * scale;
+    ctx.drawImage(
+      background,
+      (width - drawnWidth) / 2,
+      (height - drawnHeight) / 2,
+      drawnWidth,
+      drawnHeight,
+    );
   };
 
   const render = () => {
@@ -122,6 +196,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
      */
     ctx.resetTransform();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawBackground(ctx);
 
     /*
      * Back to front, so a later item covers an earlier one — and each one's z-index says the same
@@ -309,5 +385,12 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       }
     },
     requestPaint,
+    setBackground(next) {
+      if (next === background) {
+        return;
+      }
+      background = next;
+      schedulePaint();
+    },
   };
 }

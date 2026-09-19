@@ -43,7 +43,7 @@ export function Dock({ apps, onOpen, tooltipContainer }: DockProps) {
               aria-label={label}
               data-app={id}
               onClick={() => !disabled && onOpen(id)}
-              className="flex size-12 cursor-pointer items-center justify-center rounded-[calc(var(--window-radius)-0.25rem)] text-window-foreground transition-all duration-150 hover:scale-110 hover:bg-window-header focus-visible:outline-2 focus-visible:outline-dotted focus-visible:outline-window-border aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:scale-100 aria-disabled:hover:bg-transparent"
+              className="control flex size-12 items-center justify-center rounded-[calc(var(--window-radius)-0.25rem)]"
             >
               <Icon className="size-7" strokeWidth={1.5} />
             </TooltipTrigger>

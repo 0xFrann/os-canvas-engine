@@ -51,6 +51,16 @@
   --window-border: #a6a6a6;
   --window-foreground: #686868;
   --window-radius: 0.75rem;
+  /*
+   * How every control on the desktop answers the pointer — dock icons, a window's close button,
+   * whatever an app puts in its content. One wash, one scale, one curve, so the desktop reads as a
+   * system. The wash is the foreground at low alpha rather than a fixed grey: it darkens whatever
+   * it sits on, so it reads on the translucent dock over any wallpaper and on a window alike.
+   */
+  --control-wash: color-mix(in srgb, var(--window-foreground) 16%, transparent);
+  --control-scale: 1.1;
+  --control-duration: 150ms;
+  --control-ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -74,6 +84,38 @@ code {
   background: color-mix(in srgb, currentColor 12%, transparent);
   padding: 0.15em 0.4em;
   border-radius: 0.3em;
+}
+
+/*
+ * A control: anything on the desktop that can be pressed. Use this instead of styling hover, focus
+ * and disabled per component. Size, shape and layout stay the caller's; a larger surface can turn
+ * the scale down with `[--control-scale:1.05]`.
+ */
+@utility control {
+  cursor: pointer;
+  color: var(--window-foreground);
+  transition-property: scale, background-color, border-color, opacity;
+  transition-duration: var(--control-duration);
+  transition-timing-function: var(--control-ease);
+
+  &:hover {
+    background-color: var(--control-wash);
+    scale: var(--control-scale);
+  }
+
+  &:focus-visible {
+    outline: 2px dotted var(--window-border);
+  }
+
+  &[aria-disabled="true"] {
+    cursor: default;
+    opacity: 0.35;
+
+    &:hover {
+      background-color: transparent;
+      scale: 1;
+    }
+  }
 }
 
 @theme inline {

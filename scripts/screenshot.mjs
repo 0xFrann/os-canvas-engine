@@ -15,12 +15,20 @@
  *   DRAG="300,200:520,340" pnpm screenshot  # press, move in steps, release (DRAG_STEPS=n, DRAG_STEP_MS=ms)
  *   HIT_AT="300,200;520,340" pnpm screenshot  # report which drawable owns those points (who a click would reach)
  *   KEYS="Tab;Tab;Shift+Tab;Ctrl+Backquote" pnpm screenshot  # press keys in order, reporting what each one focuses
+ *   PIXEL_AT="100,600" pnpm screenshot    # read those canvas pixels back (what the canvas itself is painted with)
+ *   REGION_AT="200,200,64,64" pnpm screenshot  # ...or a region's mean and spread (flat fill vs texture)
+ *   TRACE_AT="100,600" pnpm screenshot    # ...and watch that pixel from the first frame on, reporting every change
+ *   RESIZE=800x600 pnpm screenshot        # resize the viewport mid-run (what a re-layout costs)
+ *   RELOAD=1 pnpm screenshot              # reload at the end (what survives: localStorage)
+ *   SIZE=800x600 pnpm screenshot          # start at a viewport other than 1280x800
  *   DPR=2 pnpm screenshot                 # emulate a 2x display
  *
  * One run does its actions in this order: CLICK (selectors), then DRAG, then CLICK_AT (points),
- * then KEYS. Selectors act on the page's own chrome — a dock icon that opens a window — so they go
- * first; points act on what is *drawn*, which those windows are, so they come next and can use
- * where a drag left something; keys act on whatever the pointer left focused, so they go last.
+ * then KEYS, then RESIZE, then RELOAD. Selectors act on the page's own chrome — a dock icon that
+ * opens a window — so they go first; points act on what is *drawn*, which those windows are, so
+ * they come next and can use where a drag left something; keys act on whatever the pointer left
+ * focused, so they follow; and the two that change the whole page come last, so everything above
+ * has happened before the viewport changes or the page is reloaded.
  * While any of it happens, the page counts the canvas's `paint` events and the pointer events the
  * drag produced, and the summary reports them — that's how repaint rate gets looked at.
  *
@@ -44,6 +52,11 @@ const dpr = Number(process.env.DPR ?? 1);
 const points = (value) => value?.split(";").map((p) => p.split(",").map(Number));
 const clickAt = points(process.env.CLICK_AT);
 const hitAt = points(process.env.HIT_AT);
+const pixelAt = points(process.env.PIXEL_AT);
+const regionAt = points(process.env.REGION_AT);
+const [traceAt] = points(process.env.TRACE_AT) ?? [];
+const resize = process.env.RESIZE?.split("x").map(Number);
+const reload = process.env.RELOAD;
 const drag = process.env.DRAG?.split(":").map((p) => p.split(",").map(Number));
 const dragSteps = Number(process.env.DRAG_STEPS ?? 24);
 const dragStepMs = Number(process.env.DRAG_STEP_MS ?? 8);
@@ -53,10 +66,14 @@ const keys = process.env.KEYS?.split(";");
  * The keys a desktop is driven with, by `KeyboardEvent.code`. A synthetic key needs the virtual
  * key code as well as the name, or Chrome dispatches the event without doing what the key does —
  * Tab in particular moves focus from the code, not from `key`.
+ *
+ * `text` is the other half of that: a `rawKeyDown` reaches the page but runs no default action, so
+ * Enter on a focused button does nothing at all. The keys that carry text are sent as a full
+ * `keyDown` instead, which is what makes Enter *press* the button it is on.
  */
 const KEY_CODES = {
   Backquote: { key: "`", keyCode: 192 },
-  Enter: { key: "Enter", keyCode: 13 },
+  Enter: { key: "Enter", keyCode: 13, text: "\r" },
   Escape: { key: "Escape", keyCode: 27 },
   Tab: { key: "Tab", keyCode: 9 },
 };
@@ -96,6 +113,24 @@ function findChrome() {
 }
 
 const chrome = findChrome();
+
+/*
+ * A browser already listening on this port is a *different* browser, with a different profile.
+ * Talking to it works — and quietly gives this run someone else's `localStorage` and someone
+ * else's pages, which is how a value that looks persisted turns out to be one a run hours ago left
+ * behind. Refuse instead, and say how to get out of it.
+ */
+const portInUse = await fetch(`http://localhost:${port}/json/version`).then(
+  () => true,
+  () => false,
+);
+if (portInUse) {
+  throw new Error(
+    `Something is already debugging on port ${port} — a browser a previous run left behind, most likely. ` +
+      `Close it (pkill -f remote-debugging-port=${port}) or use CDP_PORT=<other>.`,
+  );
+}
+
 const profile = mkdtempSync(join(tmpdir(), "os-canvas-shot-"));
 const proc = spawn(
   chrome,
@@ -129,6 +164,9 @@ async function waitForCdp() {
   throw new Error("Chrome did not open its debugging port");
 }
 /* oxlint-enable no-await-in-loop */
+
+/** Asks the browser to close, for the `finally` below. Set once the connection is up. */
+let closeBrowser = null;
 
 try {
   const version = await waitForCdp();
@@ -170,6 +208,8 @@ try {
       });
       ws.send(JSON.stringify({ id, method, params, sessionId }));
     });
+  // Fire and forget: a browser that is shutting down never answers.
+  closeBrowser = () => ws.send(JSON.stringify({ id: ++nextId, method: "Browser.close" }));
 
   const { targetId } = await send("Target.createTarget", {
     height,
@@ -189,6 +229,52 @@ try {
   /* A headless window is never the OS's focused window, so without this the page reports no focus
      and Tab moves nothing. */
   await send("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId);
+  /*
+   * What the canvas is painted with at one point, from the very first frame on — installed before
+   * the page exists, because the question it answers is what the desktop looked like *before* React
+   * had settled (a wallpaper read from storage must not flash the other one). Only the changes are
+   * kept, so an unchanging pixel is one entry.
+   */
+  if (traceAt) {
+    await send(
+      "Page.addScriptToEvaluateOnNewDocument",
+      {
+        source: `(() => {
+          const [x, y] = ${JSON.stringify(traceAt)};
+          const trace = [];
+          window.__trace = trace;
+          const sample = (canvas) => {
+            try {
+              const { data } = canvas.getContext("2d").getImageData(
+                Math.round(x * devicePixelRatio), Math.round(y * devicePixelRatio), 1, 1);
+              return "rgba(" + data[0] + "," + data[1] + "," + data[2] + "," + data[3] + ")";
+            } catch (error) { return "unreadable: " + error.name; }
+          };
+          /* Driven by the canvas's own paint event, not by a frame loop: a rAF callback runs
+             *before* the frame is painted, so it reads the canvas one render behind and reports a
+             blank frame that was never on screen. Listening for paint — and reading straight
+             after, so the engine's own handler has already drawn — records what each render
+             actually left behind, first one included. */
+          const watch = (canvas) => {
+            trace.push({ value: "canvas in the page", ms: Math.round(performance.now()) });
+            canvas.addEventListener("paint", () => {
+              const value = sample(canvas);
+              const last = trace.at(-1);
+              if (!last || last.value !== value) trace.push({ value, ms: Math.round(performance.now()) });
+            });
+          };
+          const find = () => {
+            const canvas = document.querySelector("canvas");
+            if (canvas) { watch(canvas); return; }
+            if (performance.now() < ${waitMs}) requestAnimationFrame(find);
+          };
+          requestAnimationFrame(find);
+        })()`,
+      },
+      sessionId,
+    );
+  }
+
   await send("Page.navigate", { url }, sessionId);
   await new Promise((r) => setTimeout(r, waitMs));
 
@@ -255,8 +341,9 @@ try {
     /* oxlint-enable no-await-in-loop */
   };
 
-  if (drag || click || clickAt || hover || keys) {
-    await probe(`(() => {
+  /** Counts paint and pointer events in the page. Installed again after a reload, which drops it. */
+  const installProbe = () =>
+    probe(`(() => {
       const counts = { paints: 0, pointerdown: 0, pointermove: 0, pointerup: 0, since: performance.now() };
       window.__probe = counts;
       document.querySelector("canvas")?.addEventListener("paint", () => counts.paints++);
@@ -264,6 +351,10 @@ try {
         window.addEventListener(type, () => counts[type]++, true);
       }
     })()`);
+  const acting = drag || click || clickAt || hover || keys || resize || reload;
+
+  if (acting) {
+    await installProbe();
     // A second of nothing: any paint counted here is the engine painting itself in a loop.
     await new Promise((r) => setTimeout(r, 1000));
     const idle = await probe(`(() => {
@@ -359,19 +450,23 @@ try {
         }
         modifiers |= MODIFIERS[part];
       }
-      for (const type of ["rawKeyDown", "keyUp"]) {
-        await send(
-          "Input.dispatchKeyEvent",
-          {
-            code,
-            key: named.key,
-            modifiers,
-            nativeVirtualKeyCode: named.keyCode,
-            type,
-            windowsVirtualKeyCode: named.keyCode,
-          },
-          sessionId,
-        );
+      let down = "rawKeyDown";
+      if (named.text) {
+        down = "keyDown";
+      }
+      for (const type of [down, "keyUp"]) {
+        const event = {
+          code,
+          key: named.key,
+          modifiers,
+          nativeVirtualKeyCode: named.keyCode,
+          type,
+          windowsVirtualKeyCode: named.keyCode,
+        };
+        if (type === down) {
+          event.text = named.text;
+        }
+        await send("Input.dispatchKeyEvent", event, sessionId);
       }
       await new Promise((r) => setTimeout(r, 300));
       const report = await probe(`(() => {
@@ -388,6 +483,36 @@ try {
       );
     }
     /* oxlint-enable no-await-in-loop */
+  }
+
+  if (resize) {
+    const [resizedWidth, resizedHeight] = resize;
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { deviceScaleFactor: dpr, height: resizedHeight, mobile: false, width: resizedWidth },
+      sessionId,
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    const paints = await probe(`(() => {
+      const { paints } = window.__probe;
+      window.__probe.paints = 0;
+      return paints;
+    })()`);
+    console.log(`resized to ${resizedWidth}x${resizedHeight}: ${paints} paint events`);
+  }
+
+  if (reload) {
+    await send("Page.reload", {}, sessionId);
+    await new Promise((r) => setTimeout(r, waitMs));
+    // The page is new, so its counters are gone with it.
+    await installProbe();
+    await new Promise((r) => setTimeout(r, 500));
+    const paints = await probe(`(() => {
+      const { paints } = window.__probe;
+      window.__probe.paints = 0;
+      return paints;
+    })()`);
+    console.log(`reloaded: ${paints} paint events in the 500ms after it settled`);
   }
 
   if (hover) {
@@ -408,7 +533,7 @@ try {
     );
   }
 
-  if (drag || click || clickAt || hover || keys) {
+  if (acting) {
     /* A second of nothing *after* the interactions, not just before them: a repaint loop is as
        easy to open by leaving something focused or hovered as by a bad write in the paint pass. */
     await new Promise((r) => setTimeout(r, 1000));
@@ -429,7 +554,12 @@ try {
         return {
           supported: "drawElementImage" in CanvasRenderingContext2D.prototype,
           active: ${ACTIVE_ELEMENT},
-          canvas: { width: canvas.width, height: canvas.height, content: canvas.getAttribute("content"), layoutsubtree: canvas.hasAttribute("layoutsubtree") },
+          canvas: {
+            width: canvas.width, height: canvas.height, content: canvas.getAttribute("content"), layoutsubtree: canvas.hasAttribute("layoutsubtree"),
+            // What the *element* is painted with, as opposed to what the engine drew into it.
+            cssBackground: getComputedStyle(canvas).backgroundColor, cssRect: (() => { const r = canvas.getBoundingClientRect(); return [r.width, r.height].map(Math.round).join("x"); })(),
+          },
+          viewport: innerWidth + "x" + innerHeight + " @" + devicePixelRatio,
           elementApi: Object.getOwnPropertyNames(CanvasRenderingContext2D.prototype).filter((n) => /element/i.test(n)),
           mounts: [...canvas.querySelectorAll("[drawable]")].map((el) => {
             const r = el.getBoundingClientRect();
@@ -444,6 +574,35 @@ try {
             const owner = mount ? "drawable z" + mount.style.zIndex + " " + mount.textContent.slice(0, 20) : (el ? el.tagName.toLowerCase() + (el.closest(".desktop") ? " in .desktop" : " outside .desktop") : "nothing");
             return x + "," + y + " -> " + owner;
           }),
+          // What the canvas is actually painted with at each point, read back out of its own pixels.
+          pixels: ${JSON.stringify(pixelAt ?? [])}.map(([x, y]) => {
+            const ctx = canvas.getContext("2d");
+            try {
+              const { data } = ctx.getImageData(Math.round(x * devicePixelRatio), Math.round(y * devicePixelRatio), 1, 1);
+              const hex = "#" + [data[0], data[1], data[2]].map((c) => c.toString(16).padStart(2, "0")).join("");
+              return x + "," + y + " -> " + hex + " alpha " + data[3];
+            } catch (error) { return x + "," + y + " -> unreadable: " + error.name; }
+          }),
+          /* A region's mean and standard deviation, which is how "there is texture in there" gets a
+             number: a flat fill reads 0 spread, anything grainy does not. */
+          regions: ${JSON.stringify(regionAt ?? [])}.map(([x, y, w, h]) => {
+            const ctx = canvas.getContext("2d");
+            try {
+              const { data } = ctx.getImageData(Math.round(x * devicePixelRatio), Math.round(y * devicePixelRatio), Math.round(w * devicePixelRatio), Math.round(h * devicePixelRatio));
+              const luma = [];
+              let sum = 0, squares = 0;
+              for (let i = 0; i < data.length; i += 4) { const l = (data[i] + data[i + 1] + data[i + 2]) / 3; luma.push(l); sum += l; squares += l * l; }
+              const mean = sum / luma.length;
+              /* Spread says how much the region varies at all — a gradient varies plenty. The
+                 average step between neighbouring pixels says how much of it is *per pixel*, which
+                 is what distinguishes texture from a smooth ramp. */
+              const pixels = Math.round(w * devicePixelRatio);
+              let steps = 0, pairs = 0;
+              for (let i = 0; i < luma.length; i++) { if ((i + 1) % pixels !== 0) { steps += Math.abs(luma[i + 1] - luma[i]); pairs++; } }
+              return x + "," + y + " " + w + "x" + h + " -> mean " + mean.toFixed(2) + ", sd " + Math.sqrt(squares / luma.length - mean * mean).toFixed(3) + ", step " + (steps / pairs).toFixed(3);
+            } catch (error) { return x + "," + y + " -> unreadable: " + error.name; }
+          }),
+          trace: window.__trace,
         };
       })()`,
       returnByValue: true,
@@ -458,7 +617,14 @@ try {
   const { data } = await send("Page.captureScreenshot", { format: "png" }, sessionId);
   writeFileSync(out, Buffer.from(data, "base64"));
   console.log(`saved ${out}`);
+  closeBrowser();
+  closeBrowser = null;
   ws.close();
 } finally {
+  /* SIGTERM on its own has been seen to leave a headless browser running — and then it holds the
+     port, and every later run silently borrows its profile. Ask it to close, give it a moment,
+     then signal it anyway. */
+  closeBrowser?.();
+  await new Promise((r) => setTimeout(r, 300));
   proc.kill();
 }
