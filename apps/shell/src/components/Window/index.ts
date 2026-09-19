@@ -1,1 +1,10 @@
-export { Window, type WindowProps } from "./Window";
+export {
+  centeredPosition,
+  Window,
+  WINDOW_SIZES,
+  windowExtent,
+  type WindowArea,
+  type WindowExtent,
+  type WindowProps,
+  type WindowSize,
+} from "./Window";

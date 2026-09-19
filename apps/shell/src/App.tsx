@@ -5,24 +5,29 @@ import {
   type Engine,
   type Position,
 } from "@os-canvas/react";
+import {
+  BACKGROUND_STORAGE_KEY,
+  BACKGROUNDS,
+  findBackground,
+  INITIAL_BACKGROUND,
+  loadBackground,
+  readyBackground,
+} from "./backgrounds";
+import { centeredPosition, Window } from "./components/Window";
 import { DOCK_APPS } from "@apps/dockApps";
+import { type Desktop, DesktopProvider } from "./desktop";
 import { Dock } from "./components/Dock";
 import { UnsupportedBrowser } from "./UnsupportedBrowser";
-import { Window } from "./components/Window";
 import { detectHtmlInCanvasSupport } from "./detectHtmlInCanvasSupport";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-/*
- * Where windows open, and how far each one is offset from the one before it, so a second window
- * overlaps the first instead of hiding it. A position is the mount's, not the frame's, and the
- * mount leads with the shadow band `Window` puts around the frame (36 left, 32 top): the first two
- * windows put their frames at (264, 184) and (404, 284).
- *
- * This is all the placement policy the desktop has. The engine owns the position from the moment
- * the window is registered — dragging one never comes back here.
+/**
+ * How far each window is offset from the one before it, so a second window overlaps the first
+ * instead of hiding it. A header's height, which is what keeps every open window's header
+ * grabbable; a window itself is sized as a fraction of the viewport, but this is the chrome's own
+ * measurement and stays in pixels, like the shadow band.
  */
-const FIRST_POSITION: Position = { x: 228, y: 152 };
-const CASCADE_STEP: Position = { x: 140, y: 100 };
+const CASCADE_STEP = 44;
 
 interface OpenWindow {
   id: string;
@@ -49,6 +54,41 @@ export function App() {
    * engine's, which is why nothing here re-renders when one is dragged or raised.
    */
   const [openWindows, setOpenWindows] = useState<OpenWindow[]>([]);
+  /**
+   * The wallpaper, by id — a setting, not geometry, so React state is where it belongs. The engine
+   * is told what to cover the canvas with and nothing else; `localStorage`, under the reference
+   * desktop's key, is what makes the choice survive a reload.
+   */
+  const [background, setBackgroundId] = useState(INITIAL_BACKGROUND.id);
+  /**
+   * And what that wallpaper actually is: a color, or an image that has finished decoding. Loading
+   * is the desktop's job, because the engine draws what it is given and never waits for anything
+   * ([ADR 008](../../../docs/decisions/008-the-engine-draws-the-background.md)). The one already in
+   * hand stays on the canvas until the next one is ready, so switching never shows a gap.
+   */
+  const [drawnBackground, setDrawnBackground] = useState<string | CanvasImageSource | null>(() =>
+    readyBackground(INITIAL_BACKGROUND),
+  );
+  useEffect(() => {
+    let current = true;
+    void loadBackground(findBackground(background)).then((next) => {
+      if (current) {
+        setDrawnBackground(next);
+      }
+    });
+    return () => {
+      current = false;
+    };
+  }, [background]);
+  /** What the desktop lets the apps running on it ask for. Settings is its first consumer. */
+  const desktop: Desktop = {
+    background,
+    backgrounds: BACKGROUNDS,
+    setBackground: (id) => {
+      setBackgroundId(id);
+      localStorage.setItem(BACKGROUND_STORAGE_KEY, id);
+    },
+  };
 
   /** Each open window's engine item, so the dock can raise one without a pointer on it. */
   const items = useRef(new Map<string, DrawableItem>()).current;
@@ -72,20 +112,44 @@ export function App() {
   /**
    * A dock click. Both halves are idempotent: an app that is already open is not opened twice, it
    * is raised — which is `item.raise()`, the engine's own press-to-raise with no press behind it.
+   *
+   * **Where it opens:** the first window is centred, and the ones after it cascade down the lowest
+   * free step from *that* window's place. A window is a fraction of the viewport, so a fixed corner
+   * would mean nothing; the desktop works the position out once, here, from its own size and the
+   * window's, and the engine owns it from registration onwards. The canvas fills the viewport
+   * (`.surface`) and a window's `vw`/`vh` size resolves against the same box, so the viewport is
+   * the desktop's area for both.
+   *
+   * The cascade runs from one shared corner rather than from each window's own centred spot,
+   * because the windows are different sizes: centred, a medium window's top edge sits half the
+   * size difference above a small one's, and on screen that was enough for the second window to
+   * land on the first one's header and hide it completely. From a shared corner, every window's
+   * frame is exactly a step below the one before it, whatever size it is.
    */
   const openApp = (id: string) => {
+    const app = DOCK_APPS.find((candidate) => candidate.id === id);
+    if (!app) {
+      return;
+    }
     setOpenWindows((windows) => {
       if (windows.some((window) => window.id === id)) {
         return windows;
       }
       const slot = freeSlot(windows);
+      const first = DOCK_APPS.find(
+        (candidate) => candidate.id === windows.find((window) => window.slot === 0)?.id,
+      );
+      const anchor = centeredPosition(
+        { height: globalThis.innerHeight, width: globalThis.innerWidth },
+        (first ?? app).windowSize,
+      );
       return [
         ...windows,
         {
           id,
           position: {
-            x: FIRST_POSITION.x + CASCADE_STEP.x * slot,
-            y: FIRST_POSITION.y + CASCADE_STEP.y * slot,
+            x: anchor.x + CASCADE_STEP * slot,
+            y: anchor.y + CASCADE_STEP * slot,
           },
           slot,
         },
@@ -134,27 +198,37 @@ export function App() {
   }
 
   return (
-    <div className="desktop" ref={desktopRef}>
-      <CanvasSurface className="surface bg-muted" aria-label="Desktop" ref={engineRef}>
-        {openWindows.map(({ id, position }) => {
-          const app = DOCK_APPS.find((candidate) => candidate.id === id);
-          if (!app) {
-            return null;
-          }
-          return (
-            <Window
-              key={id}
-              initialPosition={position}
-              onClose={() => closeApp(id)}
-              ref={itemRefs.get(id)}
-              title={app.label}
-            >
-              {app.content}
-            </Window>
-          );
-        })}
-      </CanvasSurface>
-      <Dock apps={DOCK_APPS} onOpen={openApp} tooltipContainer={desktopRef} />
-    </div>
+    <DesktopProvider value={desktop}>
+      <div className="desktop" ref={desktopRef}>
+        {/* No CSS background on the canvas: the wallpaper is drawn by the engine, so the desktop's
+            own pixels come out of the canvas like everything else on it (ADR 008). */}
+        <CanvasSurface
+          aria-label="Desktop"
+          background={drawnBackground}
+          className="surface"
+          ref={engineRef}
+        >
+          {openWindows.map(({ id, position }) => {
+            const app = DOCK_APPS.find((candidate) => candidate.id === id);
+            if (!app) {
+              return null;
+            }
+            return (
+              <Window
+                key={id}
+                initialPosition={position}
+                onClose={() => closeApp(id)}
+                ref={itemRefs.get(id)}
+                size={app.windowSize}
+                title={app.label}
+              >
+                {app.content}
+              </Window>
+            );
+          })}
+        </CanvasSurface>
+        <Dock apps={DOCK_APPS} onOpen={openApp} tooltipContainer={desktopRef} />
+      </div>
+    </DesktopProvider>
   );
 }

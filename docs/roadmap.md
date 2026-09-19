@@ -13,7 +13,9 @@ we learn on screen — and each feature is one branch, one PR. See **How we work
 | A window with a draggable header (the reference desktop's window chrome) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/window-drag.md), [engineering note](./engineering-notes/2026-09-18-drag-repaint.md) | [004](./decisions/004-window-chrome-belongs-to-the-desktop.md) |
 | Multiple windows, opened from a dock (overlap, click-to-raise, close) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/multiple-windows.md), [engineering note](./engineering-notes/2026-09-18-overlap-hit-order.md) | [005](./decisions/005-draw-order-lives-in-the-engine.md), [006](./decisions/006-the-dock-is-chrome-over-the-canvas.md) |
 | An active window (Tab stays inside the front one, Ctrl+` switches, focus follows) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/active-window.md), [engineering note](./engineering-notes/2026-09-18-inert-and-keyboard-confinement.md) | [007](./decisions/007-active-is-the-front-window.md) |
-| The rest of the reference desktop (wallpaper, menu bar + fullscreen, boot splash, desktop icon grid, Settings' background chooser, Example Two) | todo | `apps/shell` | — | — |
+| A wallpaper the user can change (the engine draws it; Settings chooses it; windows get viewport-relative sizes) | done | `packages/engine`, `packages/react`, `apps/shell` | [feature note](./features/wallpaper.md), [engineering note](./engineering-notes/2026-09-18-wallpaper-in-the-canvas.md) | [008](./decisions/008-the-engine-draws-the-background.md) |
+| An animated wallpaper | todo | — | — | — |
+| The rest of the reference desktop (menu bar + fullscreen, boot splash, desktop icon grid, Example Two) | todo | `apps/shell` | — | — |
 | Beyond the reference: what canvas makes possible (pan/zoom the desktop, …) | todo | — | — | — |
 
 Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-canvas-engine/) (deploys from `main` on every push).
@@ -39,6 +41,16 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
   front item, focus following it when it changes) and leaves the desktop only the choice of *which
   key* switches windows, because a shortcut is OS policy. The list grew one operation, not a
   document.
+- **A wallpaper the user can change** — the first thing the engine draws that is not a DOM element,
+  so it asks what the canvas is *for*: the dock said chrome is not drawn, and the pixel behind the
+  windows says the surface is. It also makes the engine draw an image, which splits loading (the
+  host's) from fitting (the engine's), and gives Settings the first thing an app asks the desktop
+  for — a setting it is not allowed to change itself. Per-app window sizes come with it, because
+  Settings is the app that needs one, and sizes relative to the viewport are what force the desktop
+  to work out where a window opens instead of hard-coding a corner.
+- **An animated wallpaper** — the first thing that wants a frame after nothing happened: idle has
+  been 0 paints per second since the drag, and this is what decides whether that property is a rule
+  or a default. Designed when we get there.
 - **Rest of the reference desktop** — the shell is complete as a port.
 - **Beyond the reference** — picked and designed when we get there, not now.
 
@@ -83,3 +95,4 @@ Live preview: [0xfrann.github.io/os-canvas-engine](https://0xfrann.github.io/os-
 | 2026-09-18 | Two overlapping windows: the engine's items became an ordered list drawn back to front, with `item.raise()` and a raise on `pointerdown`. Draw order does not reach hit-testing: the mounts are static siblings, so Chrome hit-tests them in DOM order and the engine has to write `z-index` (plus `position: relative`) alongside the transform. Two windows cost the same paints as one; idle stays at 0. ADR 005. The second window's content is the reference's Example app, ported as it is |
 | 2026-09-18 | A dock opens them, and the feature became *multiple windows*: which windows exist is React state in the desktop, positions and draw order stay in the engine, and the only new binding is `<Drawable ref>` handing back the `DrawableItem` so the dock can `raise()` a window nobody is pointing at. `packages/engine` unchanged. The close button is finally wired. ADR 006: the dock is chrome laid over the canvas, not a drawable — hovering it costs the canvas 0 paints. The reference desktop is the source of truth for what exists and how it behaves, not for how it looks: the dock's look is this project's own (Tailwind, shadcn/Base UI tooltip, lucide icons), after a first pass that ported its SCSS was thrown away |
 | 2026-09-18 | An active window: active *is* the front one, so no new state — Tab is confined to it and wraps, Ctrl+` cycles (`code`, not `key`), and focus follows the front window onto its mount rather than onto a control, because every window's first control is its close button. `inert` was tried on screen first and rejected: it leaves the snapshot byte-identical but takes a buried window out of hit-testing, so pressing it stops raising it. The engine handles `keydown` on the document and gained one method; which key it is stays the desktop's, and `<CanvasSurface ref>` now hands back the engine so `App` can bind it. ADR 007. No active-window marker — what should show it, if anything, is still undecided |
+| 2026-09-18 | A wallpaper the user can change, and the desktop stopped having a CSS background: the engine fills the canvas under the items, with a color or an image fitted to cover, and that is one new method and one step of the render pass — not an item, not a loader, not a model. ADR 008. Loading and remembering are the desktop's; the Settings app only asks it, through a small context, which is ADR 004 holding for something that is not a window. Per-app window sizes came with it, `clamp()` of the viewport rather than the reference's `vw`/`vh` numbers, so a window is the width it has always been at 1280 and still whole at 800; the first window is centred and the rest cascade from *its* corner, after cascading from each window's own centre put two windows 5px apart. Measured: a change costs the engine 1 paint, the same one again 0, idle stays 0/s with an image on screen, a resize re-lays out for 1 paint with no engine call, and the first render of a cold load already has the wallpaper on it |
